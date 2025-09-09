@@ -1,0 +1,12 @@
+{
+  "name": "static-server",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "start.js",
+  "scripts": {
+    "start": "node start.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

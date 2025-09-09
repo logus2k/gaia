@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8" />
+	<title>Conversational Globe</title>
+	<link rel="stylesheet" href="./style/styles.css" />
+	<link rel="icon" href="data:,">
+	<script type="importmap">{ "imports": { "three": "./library/three.module.min.js" } }</script>
+</head>
+
+<body>
+	<div id="overlay">
+		<!-- RIGHT HUD: main controls -->
+		<div class="hud right" id="hud-main">
+			<h1>Earth Controls</h1>
+
+			<!-- Navigation -->
+			<div class="row" style="align-items:flex-start;">
+				<div>Navigation</div>
+				<div class="btnrow">
+					<button class="btn" id="btn-face-n" title="Center North Pole">North</button>
+					<button class="btn" id="btn-face-s" title="Center South Pole">South</button>
+					<button class="btn" id="btn-face-0" title="Center prime meridian (lon 0°)">Greenwich</button>
+				</div>
+			</div>
+
+			<!-- Interaction -->
+			<div class="row"><label><input id="toggle-stars-motion" type="checkbox" checked />Show stars
+					movement</label></div>
+
+			<!-- View readout -->
+			<div class="row"><label><input id="toggle-view-readout" type="checkbox" checked />Show readout</label>
+			</div>
+			<div class="row" id="view-readout-row">
+				<div>Center</div>
+				<div class="readout" style="text-align:left;">
+					<div id="view-center">—</div>
+					<div id="view-roll" style="opacity:.8;">—</div>
+				</div>
+			</div>
+
+			<!-- Textures -->
+			<div class="row">
+				<label for="mode">Texture:</label>
+				<select id="mode">
+					<option value="day">Day (Blue Marble)</option>
+					<option value="night">Night (Black Marble)</option>
+					<option value="population">Population</option>
+					<option value="vegetation">Vegetation</option>
+					<option value="topography">Topography</option>
+					<option value="bathymetry">Bathymetry</option>
+					<option value="land_temperature">Land Temperature</option>
+					<option value="land_cover_classification">Land Cover Classification</option>
+					<option value="terrain">Terrain</option>
+					<option value="none">No texture (plain)</option>
+				</select>
+			</div>
+			<!-- Globe color (only when No texture) -->
+			<div class="row hidden" id="globeColorRow">
+				<label>Globe color</label>
+				<div style="display:flex; gap:8px; align-items:center;">
+					<input id="globeColorPick" type="color" value="#0a2a43" />
+					<input id="globeHex" type="text" value="#0A2A43FF" title="#RRGGBBAA (alpha sets globe opacity)" />
+				</div>
+			</div>
+
+			<!-- Layers -->
+			<div class="row"><label><input id="toggle-clouds" type="checkbox" checked /> Show clouds</label></div>
+			<!-- clouds mode row removed -->
+			<div class="row"><label><input id="clouds-additive" type="checkbox" checked /> Additive blend
+					(brighter)</label>
+			</div>
+
+			<div class="row"><label><input id="toggle-atmo" type="checkbox" checked /> Atmosphere glow</label></div>
+			<div class="row" id="atmoColorRow">
+				<label>Atmosphere color</label>
+				<div style="display:flex; gap:8px; align-items:center;">
+					<input id="atmoColorPick" type="color" value="#78b4ff" />
+					<input id="atmoHex" type="text" value="#78B4FFFF"
+						title="#RRGGBBAA (alpha scales glow brightness)" />
+				</div>
+			</div>
+
+			<div class="row"><label><input id="toggle-labels" type="checkbox" /> Show labels</label></div>
+
+			<div class="row"><label><input id="toggle-borders" type="checkbox" /> Political borders</label></div>
+			<div class="row hidden" id="bordersColorRow">
+				<label>Borders color</label>
+				<div style="display:flex; gap:8px; align-items:center;">
+					<input id="bordersColorPick" type="color" value="#ffffff" />
+					<input id="bordersHex" type="text" value="#FFFFFFBF" title="#RRGGBBAA (alpha sets opacity)" />
+				</div>
+			</div>
+
+			<div class="row"><label><input id="toggle-graticule" type="checkbox" /> Graticule (lat/long)</label></div>
+			<div class="row hidden" id="graticuleColorRow">
+				<label>Graticule color</label>
+				<div style="display:flex; gap:8px; align-items:center;">
+					<input id="graticuleColorPick" type="color" value="#cccccc" />
+					<input id="graticuleHex" type="text" value="#CCCCCC59"
+						title="#RRGGBBAA (alpha sets line opacity)" />
+				</div>
+			</div>
+
+			<!-- Stars -->
+			<div class="row"><label><input id="toggle-stars" type="checkbox" checked /> Star background</label></div>
+			<div id="stars-controls">
+				<div class="row" style="margin-top:4px;">
+					<label for="skyBright">Star brightness</label>
+					<div class="readout"><span id="sky-bright-readout">3%</span></div>
+				</div>
+				<input id="skyBright" type="range" min="0" max="1" step="0.01" value="0.03" />
+				<!-- realistic stars checkbox removed -->
+			</div>
+
+			<div class="sep"></div>
+
+			<!-- Lighting -->
+			<div class="row"><label><input id="toggle-lighting" type="checkbox" /> Enable lighting</label></div>
+			<div class="row">
+				<label for="sunTime">Sun time</label>
+				<div class="readout"><span id="sun-readout">18.0 h · lon 90°</span></div>
+			</div>
+			<input id="sunTime" type="range" min="0" max="24" step="0.1" value="18" />
+
+			<div class="sep"></div>
+
+			<!-- Spin -->
+			<div class="row" style="margin-top:0;">
+				<label for="speed">Spin speed</label>
+				<div class="readout">
+					<div><span id="speed-readout">+1.15°/s · Forward</span></div>
+					<div><small id="speed-readout-km">0.02 km/s · 72 km/h · period 5m 14s</small></div>
+				</div>
+			</div>
+			<input id="speed" type="range" min="0" max="1" step="0.01" value="0.01" />
+			<!-- datalist + scale labels removed -->
+
+			<div class="mini" style="opacity:.75; margin-top:8px;">Drag to rotate · Wheel to zoom</div>
+		</div>
+
+		<!-- LEFT HUD: Data Explorer -->
+		<div class="hud left" id="hud-explorer">
+			<h1>Data Explorer</h1>
+
+			<div class="mini">Click the globe to inspect a location</div>
+			<div class="row" style="align-items:flex-start;">
+				<div style="flex:1;">
+					<input id="searchBox" type="search" placeholder="lat,lon • or location name" />
+					<div class="hint">Examples: <code>38.7223, -9.1393</code> · <code>Lisbon</code> ·
+						<code>Portugal</code>
+					</div>
+				</div>
+				<button class="btn" id="btn-search">Go</button>
+			</div>
+
+			<div id="searchStatus" class="mini" style="margin-top:4px; opacity:.8;">Indexing locations...</div>
+			<div class="results hidden" id="searchResults"></div>
+
+			<div class="sep"></div>
+
+			<div id="pickedInfo" class="mini">No location picked yet</div>
+			<div class="props hidden" id="propsBox">
+				<dl id="propsList"></dl>
+			</div>
+
+			<!-- still inside <div class="hud left" id="hud-explorer"> -->
+			<div class="sep"></div>
+
+			<h2>Selection styling</h2>
+
+			<div class="row">
+				<label><input id="sel-border-toggle" type="checkbox" checked> Highlight border</label>
+			</div>
+			<div class="row" id="sel-border-color-row">
+				<label>Border color</label>
+				<div style="display:flex; gap:8px; align-items:center;">
+					<input id="sel-border-color" type="color" value="#ffd34a">
+					<input id="sel-border-hex" type="text" value="#FFD34ACC" title="#RRGGBBAA (alpha sets opacity)">
+				</div>
+			</div>
+
+			<div class="row">
+				<label><input id="sel-fill-toggle" type="checkbox"> Fill shape</label>
+			</div>
+			<div class="row hidden" id="sel-fill-color-row">
+				<label>Fill color</label>
+				<div style="display:flex; gap:8px; align-items:center;">
+					<input id="sel-fill-color" type="color" value="#00c8ff">
+					<input id="sel-fill-hex" type="text" value="#00C8FF40" title="#RRGGBBAA (alpha sets opacity)">
+				</div>
+			</div>
+
+		</div>
+
+	</div>
+
+	<div id="markers-root"></div>
+
+	<!-- Leader line + callout panel -->
+	<svg id="callout-svg" style="position:absolute; inset:0; pointer-events:none; z-index:5;" width="0"	height="0"></svg>
+
+	<div id="callout" class="hud left" style="position:absolute; display:none; z-index:6; max-width:320px;"></div>
+
+	<!-- Browser entry -->
+	<script type="module" src="./script/app.js"></script>
+
+</body>
+
+</html>

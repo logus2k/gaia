@@ -1,0 +1,232 @@
+html,
+body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+}
+
+canvas {
+    display: block;
+    touch-action: none;
+}
+
+#overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+.hud {
+    position: absolute;
+    top: 12px;
+    background: rgba(20, 20, 20, 0.35);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    padding: 12px;
+    pointer-events: auto;
+    user-select: none;
+    backdrop-filter: blur(1px);
+    width: 380px;
+    font-size: 12px;
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+}
+
+.hud.right {
+    right: 12px;
+}
+
+.hud.left {
+    left: 12px;
+}
+
+.hud h1 {
+    font-size: 14px;
+    margin: 0 0 8px 0;
+    font-weight: 600;
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 8px 0;
+}
+
+.row label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.sep {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 8px 0;
+}
+
+input[type="range"] {
+    width: 100%;
+}
+
+input[type="color"] {
+    width: 48px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    background: transparent;
+}
+
+input[type="text"],
+input[type="search"] {
+    width: 100%;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.2);
+    color: #fff;
+}
+
+.readout {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    opacity: .9;
+    font-size: 11px;
+}
+
+.readout small {
+    opacity: .85;
+}
+
+.scale-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    opacity: .85;
+}
+
+.hidden {
+    display: none;
+}
+
+.btnrow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.btn {
+    appearance: none;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+#markers-root {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.marker {
+    position: absolute;
+    transform: translate(-50%, -100%);
+    background: rgba(0, 0, 0, 0.78);
+    color: #fff;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: auto;
+}
+
+.marker::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -6px;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid rgba(0, 0, 0, 0.78);
+}
+
+/* Data Explorer styles */
+.mini {
+    font-size: 11px;
+    opacity: .85;
+}
+
+.props {
+    max-height: 180px;
+    overflow: auto;
+    padding: 6px 8px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.props dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 10px;
+}
+
+.props dt {
+    opacity: .8;
+}
+
+.props dd {
+    margin: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.results {
+    margin-top: 6px;
+    max-height: 140px;
+    overflow: auto;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.results button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    color: #fff;
+    border: 0;
+    padding: 8px 10px;
+    cursor: pointer;
+}
+
+.results button:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.hint {
+    opacity: .7;
+    font-size: 11px;
+    margin-top: 4px;
+}

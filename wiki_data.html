@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Country Data with Wikidata</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .search-container {
+            margin-bottom: 20px;
+        }
+        #searchInput {
+            padding: 10px;
+            font-size: 16px;
+            width: 300px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+        }
+        #results {
+            margin-top: 20px;
+        }
+        .country-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: #f9f9f9;
+        }
+        .wikidata-section {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #e8f4f8;
+            border-radius: 4px;
+            border-left: 3px solid #2196F3;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .loading {
+            background-color: #e3f2fd;
+            color: #1976d2;
+        }
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        .success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+    </style>
+</head>
+<body>
+    <h1>Country Data with Wikidata Integration</h1>
+    
+    <div class="search-container">
+        <input type="text" id="searchInput" placeholder="Enter country name..." autocomplete="off">
+        <button onclick="performSearch()">Search</button>
+        <button onclick="loadData()">Load Data</button>
+    </div>
+    
+    <div id="status"></div>
+    <div id="results"></div>
+
+    <script>
+        // Include the CountryDataManager class code here
+        // ... (the corrected class code above)
+        
+        const countryManager = new CountryDataManager();
+        let searchTimeout = null;
+
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = 'status ' + type;
+            statusDiv.style.display = 'block';
+            
+            if (type !== 'loading') {
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        async function loadData() {
+            try {
+                showStatus('Loading country data...', 'loading');
+                await countryManager.loadData();
+                showStatus('Country data loaded successfully!', 'success');
+            } catch (error) {
+                showStatus('Failed to load data: ' + error.message, 'error');
+            }
+        }
+
+        async function performSearch() {
+            const searchTerm = document.getElementById('searchInput').value.trim();
+            
+            if (!searchTerm) {
+                showStatus('Please enter a search term', 'error');
+                return;
+            }
+            
+            try {
+                showStatus('Searching...', 'loading');
+                const results = await countryManager.searchByName(searchTerm);
+                displayResults(results, searchTerm);
+                showStatus('Found ' + results.length + ' countries', 'success');
+            } catch (error) {
+                showStatus('Search failed: ' + error.message, 'error');
+            }
+        }
+
+        async function displayResults(countries, searchTerm) {
+            const resultsDiv = document.getElementById('results');
+            
+            if (countries.length === 0) {
+                resultsDiv.innerHTML = '<p>No countries found matching "' + searchTerm + '"</p>';
+                return;
+            }
+            
+            let html = '<h3>Found ' + countries.length + ' country/countries:</h3>';
+            
+            // Process countries sequentially to avoid overwhelming Wikidata API
+            for (let i = 0; i < Math.min(countries.length, 5); i++) { // Limit to 5 for demo
+                const country = countries[i];
+                try {
+                    const formattedInfo = await countryManager.formatCountryInfoWithWikidata(country);
+                    html += await createCountryCard(formattedInfo);
+                } catch (error) {
+                    console.error('Error processing country:', error);
+                    html += '<div class="country-card">Error loading data for ' + country.properties.name + '</div>';
+                }
+            }
+            
+            resultsDiv.innerHTML = html;
+        }
+
+        async function createCountryCard(countryInfo) {
+            let wikidataHtml = '';
+            if (countryInfo.wikidata) {
+                wikidataHtml = '<div class="wikidata-section"><strong>Wikidata Information:</strong><br>';
+                if (countryInfo.wikidata.description) {
+                    wikidataHtml += '<strong>Description:</strong> ' + countryInfo.wikidata.description + '<br>';
+                }
+                if (countryInfo.wikidata.capital) {
+                    wikidataHtml += '<strong>Capital:</strong> ' + countryInfo.wikidata.capital + '<br>';
+                }
+                if (countryInfo.wikidata.currency) {
+                    wikidataHtml += '<strong>Currency:</strong> ' + countryInfo.wikidata.currency + '<br>';
+                }
+                if (countryInfo.wikidata.language) {
+                    wikidataHtml += '<strong>Language:</strong> ' + countryInfo.wikidata.language + '<br>';
+                }
+                if (countryInfo.wikidata.wikidataUrl) {
+                    wikidataHtml += '<a href="' + countryInfo.wikidata.wikidataUrl + '" target="_blank">View on Wikidata</a>';
+                }
+                wikidataHtml += '</div>';
+            }
+
+            return '<div class="country-card"><div style="font-size: 18px; font-weight: bold; color: #333; margin-bottom: 10px;">' + countryInfo.name + ' (' + countryInfo.code + ')</div><div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;"><div><strong>Population:</strong> ' + countryInfo.population + '</div><div><strong>GDP:</strong> ' + countryInfo.gdp + '</div><div><strong>Area:</strong> ' + countryInfo.area + '</div><div><strong>Continent:</strong> ' + countryInfo.continent + '</div><div><strong>Region:</strong> ' + countryInfo.region + '</div><div><strong>Income Group:</strong> ' + countryInfo.incomeGroup + '</div></div>' + wikidataHtml + '</div>';
+        }
+
+        // Setup real-time search
+        document.getElementById('searchInput').addEventListener('input', function() {
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+            }
+            
+            searchTimeout = setTimeout(() => {
+                if (this.value.trim()) {
+                    performSearch();
+                }
+            }, 300);
+        });
+
+        // Auto-load data when page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            loadData();
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            countryManager.destroy();
+        });
+    </script>
+</body>
+</html>
