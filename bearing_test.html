@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screen North Bearing Test</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 10px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .pass { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .info { background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        .controls {
+            margin: 20px 0;
+        }
+        .controls input, .controls button {
+            margin: 5px;
+            padding: 8px;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            margin: 10px 0;
+        }
+        .bearing-display {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <h1>Screen North Bearing Function Test</h1>
+    
+    <div class="test-container">
+        <h2>Function Under Test</h2>
+        <p>This function calculates the bearing (0-360° clockwise from north) of the "screen up" direction at a given geographic location, considering the current camera orientation.</p>
+    </div>
+
+    <div class="test-container">
+        <h2>Interactive Test</h2>
+        <div class="controls">
+            <label>Latitude: <input type="number" id="lat" value="40.7128" step="0.1" min="-90" max="90"></label>
+            <label>Longitude: <input type="number" id="lon" value="-74.0060" step="0.1" min="-180" max="180"></label>
+            <br>
+            <label>Camera Roll (°): <input type="number" id="roll" value="0" step="15" min="-180" max="180"></label>
+            <label>Camera Pitch (°): <input type="number" id="pitch" value="0" step="15" min="-90" max="90"></label>
+            <label>Camera Yaw (°): <input type="number" id="yaw" value="0" step="15" min="-180" max="180"></label>
+            <br>
+            <button onclick="updateTest()">Update Test</button>
+            <button onclick="runPresetTests()">Run Preset Tests</button>
+        </div>
+        
+        <div class="test-result info">
+            <strong>Current Result:</strong>
+            <div class="bearing-display" id="currentResult">0°</div>
+            <div id="interpretation"></div>
+        </div>
+        
+        <canvas id="visualization" width="400" height="400"></canvas>
+    </div>
+
+    <div class="test-container">
+        <h2>Test Results</h2>
+        <div id="testResults"></div>
+    </div>
+
+    <script>
+        // Global camera object that the function expects
+        let camera;
+        
+        // Initialize THREE.js camera
+        function initCamera() {
+            camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+            camera.position.set(0, 0, 5);
+        }
+
+        // The function under test
+        function screenNorthBearingDegAt(centerLL) {
+            const lat = THREE.MathUtils.degToRad(centerLL.lat);
+            const lon = THREE.MathUtils.degToRad(centerLL.lon);
+
+            // Point on unit sphere and local tangent basis (north/east) at that point
+            const clat = Math.cos(lat), slat = Math.sin(lat);
+            const clon = Math.cos(lon), slon = Math.sin(lon);
+            const p     = new THREE.Vector3(clat*clon, slat, clat*slon);                       // surface normal
+            const north = new THREE.Vector3(-slat*clon,  clat, -slat*slon).normalize();        // +lat
+            const east  = new THREE.Vector3(-slon,       0,     clon).normalize();             // +lon
+
+            // Camera "screen up" in world space
+            const camUpWorld = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion).normalize();
+
+            // Project screen-up into the tangent plane at p
+            const upTangent = camUpWorld.clone().sub(p.clone().multiplyScalar(camUpWorld.dot(p)));
+            if (upTangent.lengthSq() < 1e-12) return 0; // looking straight along normal — arbitrary
+
+            upTangent.normalize();
+
+            // Bearing = clockwise degrees from true north to projected screen-up
+            const x = upTangent.dot(east);   // component toward east
+            const y = upTangent.dot(north);  // component toward north
+            let brg = THREE.MathUtils.radToDeg(Math.atan2(x, y));
+            if (brg < 0) brg += 360;
+            return brg;
+        }
+
+        // Set camera orientation using Euler angles
+        function setCameraOrientation(roll, pitch, yaw) {
+            // Reset camera to identity first
+            camera.quaternion.set(0, 0, 0, 1);
+            
+            // Apply rotations in the correct order: Yaw (Y), Pitch (X), Roll (Z)
+            if (yaw !== 0) {
+                const yawQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(yaw));
+                camera.quaternion.multiplyQuaternions(yawQ, camera.quaternion);
+            }
+            if (pitch !== 0) {
+                const pitchQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), THREE.MathUtils.degToRad(pitch));
+                camera.quaternion.multiplyQuaternions(pitchQ, camera.quaternion);
+            }
+            if (roll !== 0) {
+                const rollQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), THREE.MathUtils.degToRad(roll));
+                camera.quaternion.multiplyQuaternions(rollQ, camera.quaternion);
+            }
+        }
+
+        // Visualization
+        function drawVisualization(lat, lon, bearing) {
+            const canvas = document.getElementById('visualization');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = 150;
+            
+            // Draw compass circle
+            ctx.strokeStyle = '#ddd';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            ctx.stroke();
+            
+            // Draw cardinal directions
+            ctx.fillStyle = '#666';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('N', centerX, centerY - radius - 10);
+            ctx.fillText('S', centerX, centerY + radius + 20);
+            ctx.fillText('E', centerX + radius + 15, centerY + 5);
+            ctx.fillText('W', centerX - radius - 15, centerY + 5);
+            
+            // Draw bearing line (screen up direction)
+            const bearingRad = THREE.MathUtils.degToRad(bearing - 90); // Adjust for canvas coords
+            const endX = centerX + Math.cos(bearingRad) * radius;
+            const endY = centerY + Math.sin(bearingRad) * radius;
+            
+            ctx.strokeStyle = '#007bff';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
+            
+            // Draw arrow head
+            const arrowSize = 15;
+            const arrowAngle = Math.PI / 6;
+            ctx.beginPath();
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(
+                endX - arrowSize * Math.cos(bearingRad - arrowAngle),
+                endY - arrowSize * Math.sin(bearingRad - arrowAngle)
+            );
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(
+                endX - arrowSize * Math.cos(bearingRad + arrowAngle),
+                endY - arrowSize * Math.sin(bearingRad + arrowAngle)
+            );
+            ctx.stroke();
+            
+            // Draw center point
+            ctx.fillStyle = '#007bff';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 5, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Add bearing text
+            ctx.fillStyle = '#007bff';
+            ctx.font = '14px Arial';
+            ctx.fillText(`Screen Up: ${bearing.toFixed(1)}°`, centerX, centerY + radius + 40);
+        }
+
+        // Update current test
+        function updateTest() {
+            const lat = parseFloat(document.getElementById('lat').value);
+            const lon = parseFloat(document.getElementById('lon').value);
+            const roll = parseFloat(document.getElementById('roll').value);
+            const pitch = parseFloat(document.getElementById('pitch').value);
+            const yaw = parseFloat(document.getElementById('yaw').value);
+            
+            setCameraOrientation(roll, pitch, yaw);
+            const bearing = screenNorthBearingDegAt({lat, lon});
+            
+            document.getElementById('currentResult').textContent = `${bearing.toFixed(1)}°`;
+            
+            // Interpretation
+            let interpretation = `At lat=${lat}°, lon=${lon}° with camera roll=${roll}°, pitch=${pitch}°, yaw=${yaw}°:<br>`;
+            interpretation += `Screen "up" points ${bearing.toFixed(1)}° clockwise from true north.`;
+            
+            if (bearing < 45 || bearing > 315) {
+                interpretation += "<br><strong>Screen up is roughly northward</strong>";
+            } else if (bearing > 45 && bearing < 135) {
+                interpretation += "<br><strong>Screen up is roughly eastward</strong>";
+            } else if (bearing > 135 && bearing < 225) {
+                interpretation += "<br><strong>Screen up is roughly southward</strong>";
+            } else {
+                interpretation += "<br><strong>Screen up is roughly westward</strong>";
+            }
+            
+            document.getElementById('interpretation').innerHTML = interpretation;
+            drawVisualization(lat, lon, bearing);
+        }
+
+        // Debug function to check camera up vector
+        function debugCameraUp() {
+            const camUp = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+            return `(${camUp.x.toFixed(3)}, ${camUp.y.toFixed(3)}, ${camUp.z.toFixed(3)})`;
+        }
+
+        // Run preset tests
+        function runPresetTests() {
+            const testResults = document.getElementById('testResults');
+            testResults.innerHTML = '';
+            
+            const tests = [
+                {
+                    name: "Identity Test - No camera rotation",
+                    lat: 40, lon: 0, roll: 0, pitch: 0, yaw: 0,
+                    expectedRange: [350, 10], // Should be very close to 0° (north)
+                    description: "With no camera rotation, screen up should point north"
+                },
+                {
+                    name: "90° Roll Test",
+                    lat: 40, lon: 0, roll: 90, pitch: 0, yaw: 0,
+                    expectedRange: [80, 100], // Should be close to 90° (east)
+                    description: "90° roll should make screen up point east"
+                },
+                {
+                    name: "180° Roll Test",
+                    lat: 40, lon: 0, roll: 180, pitch: 0, yaw: 0,
+                    expectedRange: [170, 190], // Should be close to 180° (south)
+                    description: "180° roll should make screen up point south"
+                },
+                {
+                    name: "270° Roll Test",
+                    lat: 40, lon: 0, roll: -90, pitch: 0, yaw: 0,
+                    expectedRange: [260, 280], // Should be close to 270° (west)
+                    description: "270° roll should make screen up point west"
+                },
+                {
+                    name: "Equator Test - Edge case",
+                    lat: 0, lon: 90, roll: 90, pitch: 0, yaw: 0,
+                    expectedRange: [80, 100], // Should work at equator with different longitude
+                    description: "90° roll at equator but different longitude should work"
+                }
+            ];
+            
+            tests.forEach((test, index) => {
+                setCameraOrientation(test.roll, test.pitch, test.yaw);
+                const bearing = screenNorthBearingDegAt({lat: test.lat, lon: test.lon});
+                const camUpVector = debugCameraUp();
+                
+                // Check if bearing is in expected range (handle wraparound for north)
+                let inRange = false;
+                if (test.expectedRange[0] > test.expectedRange[1]) {
+                    // Wraparound case (e.g., 350-10 means 350-360 or 0-10)
+                    inRange = bearing >= test.expectedRange[0] || bearing <= test.expectedRange[1];
+                } else {
+                    inRange = bearing >= test.expectedRange[0] && bearing <= test.expectedRange[1];
+                }
+                
+                const resultDiv = document.createElement('div');
+                resultDiv.className = `test-result ${inRange ? 'pass' : 'info'}`;
+                resultDiv.innerHTML = `
+                    <strong>Test ${index + 1}: ${test.name}</strong><br>
+                    Location: (${test.lat}°, ${test.lon}°), Camera: roll=${test.roll}°, pitch=${test.pitch}°, yaw=${test.yaw}°<br>
+                    Camera Up Vector: ${camUpVector}<br>
+                    Result: <strong>${bearing.toFixed(1)}°</strong><br>
+                    Expected: ${test.expectedRange[0]}° - ${test.expectedRange[1]}° (${inRange ? 'PASS' : 'Outside range'})<br>
+                    ${test.description}
+                `;
+                testResults.appendChild(resultDiv);
+            });
+        }
+
+        // Initialize everything
+        window.onload = function() {
+            initCamera();
+            updateTest();
+            runPresetTests();
+        };
+    </script>
+</body>
+</html>

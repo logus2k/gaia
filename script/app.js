@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from '../library/OrbitControls.js';
 
+
 // ---------- Settings (baseline) ----------
 const SETTINGS = {
 	dayTexture: '../data/world.topo.bathy.200412.3x21600x10800.jpg',
@@ -20,7 +21,6 @@ const SETTINGS = {
 	earthRadiusKm: 6371
 };
 
-
 // ---------- 2D Map handoff (MapLibre) ----------
 const TILE_SIZE = 512;           // WebMercator world size used by MapLibre zoom
 
@@ -34,6 +34,7 @@ let map2d = null;                   // MapLibre instance
 let map2dVisible = false;
 let lastEstimatedZ = 3.0;
 let lastCenterLL = { lat: 0, lon: 0 };
+let _justEntered2D = false;
 
 const STREETS_STYLE_URL = 'https://tiles.stadiamaps.com/styles/osm_bright.json';
 const AERIAL_STYLE_OBJ = {
@@ -163,14 +164,14 @@ function normalizeLon(lon) {
 }
 
 function tryEnter2D() {
-  if (map2dVisible) return;
-  if (performance.now() < _handoffCooldownUntil) return;
+	if (map2dVisible) return;
+	if (performance.now() < _handoffCooldownUntil) return;
 
-  // Use cursor LL if you have it; otherwise fall back to current center
-  const ll = (typeof handoffCenterLL === 'function') ? handoffCenterLL() : currentCenterLatLon();
-  const zEst = (estimateMapZoom.length >= 1) ? estimateMapZoom(ll) : estimateMapZoom();
+	// Use cursor LL if you have it; otherwise fall back to current center
+	const ll = (typeof handoffCenterLL === 'function') ? handoffCenterLL() : currentCenterLatLon();
+	const zEst = (estimateMapZoom.length >= 1) ? estimateMapZoom(ll) : estimateMapZoom();
 
-  if (zEst >= HANDOFF_Z_IN) showMap2D(ll, zEst);
+	if (zEst >= HANDOFF_Z_IN) showMap2D(ll, zEst);
 }
 
 
@@ -311,10 +312,10 @@ controls.minDistance = SURFACE + 0.15;
 controls.maxDistance = 20;
 
 controls.addEventListener('change', () => {
-  if (!map2dVisible && performance.now() >= _handoffCooldownUntil) {
-	const ll = handoffCenterLL();
-	tryEnter2D();
-  }
+	if (!map2dVisible && performance.now() >= _handoffCooldownUntil) {
+		const ll = handoffCenterLL();
+		tryEnter2D();
+	}
 });
 
 
@@ -1421,46 +1422,55 @@ function centerByCameraDirWorld(dirWorld) {
 function computeTargetQuatForCenter(latDeg, lonDeg, opts = {}) {
 	const q0 = globe.quaternion.clone();
 
-	// Step 1: align target to view center
+	// Step 1: yaw/pitch so (lat,lon) sits at the view center
 	const vLocal = latLonToVector3(latDeg, lonDeg, 1);
 	const vWorld = vLocal.clone().applyQuaternion(q0).normalize();
 	const desired = cameraViewDir().clone().negate();
 	const qAlign = new THREE.Quaternion().setFromUnitVectors(vWorld, desired);
 	let q = qAlign.multiply(q0); // q = qAlign * q0
 
-	// Step 2: roll control
+	// Step 2: roll control (screen-up vs geographic north)
 	const view = cameraViewDir();
-	const northW = LOCAL_Y.clone().applyQuaternion(q).normalize();
-	const a = northW.clone().projectOnPlane(view).normalize();
-	const screenUpW = camera.up.clone().projectOnPlane(view).normalize();
-	if (a.lengthSq() > 1e-12 && screenUpW.lengthSq() > 1e-12) {
+	const northW = LOCAL_Y.clone().applyQuaternion(q).normalize();          // world "north" after Step 1
+	const a = northW.clone().projectOnPlane(view).normalize();              // north projected to screen plane
+	const screenUpW = camera.up.clone().projectOnPlane(view).normalize();   // current screen-up in world
 
+	if (a.lengthSq() > 1e-12 && screenUpW.lengthSq() > 1e-12) {
 		if (opts.preserveRoll) {
-			// do nothing: keep whatever screen-roll we currently have
+			// keep existing roll
 		} else if (typeof opts.targetBearingDeg === 'number') {
-			// Compute the current screen-bearing of north after Step 1…
-			const d = 0.20;
+			// Compute current on-screen bearing of geographic north at the target center (after Step 1)
+			// Bearing convention: clockwise degrees from north to screen-up (MapLibre-style)
+			const d = 0.20; // small step to sample "north"
 			const centerLL = { lat: latDeg, lon: lonDeg };
 			const pC = latLonToVector3(centerLL.lat, centerLL.lon, R).applyQuaternion(q);
 			const pN = latLonToVector3(centerLL.lat + d, centerLL.lon, R).applyQuaternion(q);
 			const sC = worldToScreen(pC);
 			const sN = worldToScreen(pN);
+
+			// Vector on screen pointing toward geographic north
 			const vx = sN.x - sC.x, vy = sN.y - sC.y;
 			const curDeg = (THREE.MathUtils.radToDeg(Math.atan2(vx, -vy)) + 360) % 360;
-			let delta = curDeg - opts.targetBearingDeg;
-			delta = ((delta + 180) % 360) - 180; // shortest direction
-			const qRoll = new THREE.Quaternion().setFromAxisAngle(view, THREE.MathUtils.degToRad(-delta));
+
+			// ► Correct delta: target - current (shortest path)
+			let delta = opts.targetBearingDeg - curDeg;
+			delta = ((delta + 180) % 360) - 180; // normalize to [-180, 180)
+
+			// Rotate around the view axis by +delta (no extra minus)
+			const qRoll = new THREE.Quaternion().setFromAxisAngle(view, THREE.MathUtils.degToRad(delta));
 			q = qRoll.multiply(q);
 		} else {
-			// default legacy behavior: north-up
+			// Default: roll so that geographic north points to screen-up (north-up)
 			const angle = signedAngleAroundAxis(a, screenUpW, view);
 			const qRoll = new THREE.Quaternion().setFromAxisAngle(view, angle);
 			q = qRoll.multiply(q);
 		}
-
 	}
+
 	return q;
 }
+
+
 function startNavTweenToQuat(qTarget, dur = 1200, onComplete) {
 	spinVel.set(0, 0, 0);              // stop inertial spin while tweening
 	navTween = {
@@ -1478,7 +1488,7 @@ function animateCenterOnGlobe(latDeg, lonDeg, opts = {}) {
 	startNavTweenToQuat(qTarget, opts.duration ?? 1200, opts.onComplete);
 }
 
-/*
+
 document.getElementById('btn-face-n').addEventListener('click', () => {
 	animateCenterOnGlobe(90, 0);
 });
@@ -1488,7 +1498,7 @@ document.getElementById('btn-face-s').addEventListener('click', () => {
 document.getElementById('btn-face-0').addEventListener('click', () => {
 	animateCenterOnGlobe(0, 0);
 });
-*/
+
 
 // ---------- View readout ----------
 function latLonFromWorldPoint(worldP) {
@@ -1555,8 +1565,8 @@ let last = performance.now();
 
 	// --- 2D handoff check every ~250ms ---
 	if (!animate._handoffTimer) animate._handoffTimer = 0;
-		animate._handoffTimer += dt;
-		if (animate._handoffTimer >= 0.10) {
+	animate._handoffTimer += dt;
+	if (animate._handoffTimer >= 0.10) {
 		animate._handoffTimer = 0;
 		tryEnter2D();
 	}
@@ -1832,165 +1842,178 @@ function defaultMapStyleFromEarthControls() {
 }
 
 // Bearing of "north" on screen at the current view center (degrees, clockwise from screen-up)
+// Clockwise degrees from true north to SCREEN-UP at (lat, lon),
+// using the current camera orientation. Works for any roll (even upside-down).
 function screenNorthBearingDegAt(centerLL) {
-	// Exact bearing from camera screen-up to true north on tangent plane at LL
-	const lat = THREE.MathUtils.degToRad(centerLL.lat);
-	const lon = THREE.MathUtils.degToRad(centerLL.lon);
-	const clat = Math.cos(lat), slat = Math.sin(lat);
-	const clon = Math.cos(lon), slon = Math.sin(lon);
+  const lat = THREE.MathUtils.degToRad(centerLL.lat);
+  const lon = THREE.MathUtils.degToRad(centerLL.lon);
 
-	// Surface normal at LL
-	const p = new THREE.Vector3(clat * clon, slat, clat * slon);
+  // Point on unit sphere and local tangent basis (north/east) at that point
+  const clat = Math.cos(lat), slat = Math.sin(lat);
+  const clon = Math.cos(lon), slon = Math.sin(lon);
+  const p     = new THREE.Vector3(clat*clon, slat, clat*slon);                       // surface normal
+  const north = new THREE.Vector3(-slat*clon,  clat, -slat*slon).normalize();        // +lat
+  const east  = new THREE.Vector3(-slon,       0,     clon).normalize();             // +lon
 
-	// Local tangent basis: true north & east unit vectors
-	const north = new THREE.Vector3(-slat * clon, clat, -slat * slon).normalize();
-	const east = new THREE.Vector3(-slon, 0, clon).normalize();
+  // Camera "screen up" in world space
+  const camUpWorld = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion).normalize();
 
-	// Camera up in world space
-	const camUpWorld = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion).normalize();
+  // Project screen-up into the tangent plane at p
+  const upTangent = camUpWorld.clone().sub(p.clone().multiplyScalar(camUpWorld.dot(p)));
+  if (upTangent.lengthSq() < 1e-12) return 0; // looking straight along normal — arbitrary
 
-	// Project screen-up into the tangent plane at p
-	const upTangent = camUpWorld.clone().sub(p.clone().multiplyScalar(camUpWorld.dot(p)));
-	if (upTangent.lengthSq() < 1e-12) return 0; // edge case
+  upTangent.normalize();
 
-	upTangent.normalize();
-
-	// Bearing = clockwise degrees from true north to projected screen-up
-	const x = upTangent.dot(east);
-	const y = upTangent.dot(north);
-	let brg = THREE.MathUtils.radToDeg(Math.atan2(x, y));
-	if (brg < 0) brg += 360;
-	return brg;
+  // Bearing = clockwise degrees from true north to projected screen-up
+  const x = upTangent.dot(east);   // component toward east
+  const y = upTangent.dot(north);  // component toward north
+  let brg = THREE.MathUtils.radToDeg(Math.atan2(x, y));
+  if (brg < 0) brg += 360;
+  return brg;
 }
-
 
 
 let _handoffPose = null;
 
 function ensureMap(centerLL, zoom, stylePref) {
 	const desiredTag = (stylePref === 'streets') ? 'streets' : 'aerial';
-	const bearing = (() => {
-		const b = screenNorthBearingDegAt(centerLL);
-		return Number.isFinite(b) ? b : 0;
-	})();
 
+	// Capture pose once upstream; reuse it verbatim while entering 2D.
+	const pose = _handoffPose || {
+		center: { lat: centerLL.lat, lon: normalizeLon(centerLL.lon) },
+		zoom,
+		// Only computed if no _handoffPose was set by caller
+		bearing: (() => {
+			const b = screenNorthBearingDegAt(centerLL);
+			return Number.isFinite(b) ? b : 0;
+		})()
+	};
+
+	// ---------------- Reuse existing map instance ----------------
 	if (map2d) {
-		// Reuse existing instance
-		try { map2d.stop(); } catch (_) { }
-
-		// Only change style if needed
 		const needStyleChange = map2d._styleTag !== desiredTag;
 		if (needStyleChange) {
+			// Switch style and, once loaded, assert the captured pose ONCE
 			if (desiredTag === 'streets') map2d.setStyle(STREETS_STYLE_URL);
 			else map2d.setStyle(AERIAL_STYLE_OBJ);
 			map2d._styleTag = desiredTag;
 
-			// After style load, assert the captured pose exactly
 			map2d.once('styledata', () => {
-				const p = _handoffPose || { center: centerLL, zoom, bearing };
-				try { map2d.stop(); } catch (_) { }
-				map2d.jumpTo({
-					center: [p.center.lon, p.center.lat],
-					zoom: p.zoom,
-					bearing: p.bearing,
-					pitch: 0
-				});
+				if (_handoffPose) {
+					try { map2d.stop(); } catch (_) { }
+					map2d.jumpTo({
+						center: [_handoffPose.center.lon, _handoffPose.center.lat],
+						zoom: _handoffPose.zoom,
+						bearing: _handoffPose.bearing,
+						pitch: 0
+					});
+				}
 			});
 		}
 
-		// Immediate assert (covers already-loaded style)
-		const poseNow = _handoffPose || { center: centerLL, zoom, bearing };
-		map2d.jumpTo({
-			center: [poseNow.center.lon, poseNow.center.lat],
-			zoom: poseNow.zoom,
-			bearing: poseNow.bearing,
-			pitch: 0
-		});
+		// Don’t keep re-asserting pose while already in 2D; do it only once right after entry
+		if (_justEntered2D && _handoffPose) {
+			try { map2d.stop(); } catch (_) { }
+			map2d.jumpTo({
+				center: [_handoffPose.center.lon, _handoffPose.center.lat],
+				zoom: _handoffPose.zoom,
+				bearing: _handoffPose.bearing,
+				pitch: 0
+			});
+			_justEntered2D = false;  // allow free rotation/drags from now on
+		}
 
+		bindExitHandlerOnce(map2d);
 		return map2d;
 	}
 
-	// Create the map (first time)
+	// ---------------- Create map first time ----------------
 	map2d = new maplibregl.Map({
 		container: 'map2d',
 		style: (desiredTag === 'streets') ? STREETS_STYLE_URL : AERIAL_STYLE_OBJ,
-		center: [centerLL.lon, centerLL.lat],
-		zoom,
-		bearing,
+		center: [pose.center.lon, pose.center.lat],
+		zoom: pose.zoom,
+		bearing: pose.bearing,
 		pitch: 0,
-		attributionControl: true
+		attributionControl: true,
+		// allow rotation with pitch locked to 0
+		dragRotate: true,
+		pitchWithRotate: false
 	});
 	map2d._styleTag = desiredTag;
 
-	// Basic controls
+	// Controls / gestures
 	map2d.addControl(new maplibregl.NavigationControl(), 'top-right');
-	// Zoom around mouse pointer (noop if already enabled)
-	if (map2d.scrollZoom && map2d.scrollZoom.enable) {
-		map2d.scrollZoom.enable({ around: 'pointer' });
-	}
+	if (map2d.scrollZoom?.enable) map2d.scrollZoom.enable({ around: 'pointer' });
+	if (map2d.dragRotate?.enable) map2d.dragRotate.enable();
+	if (map2d.touchZoomRotate?.enableRotation) map2d.touchZoomRotate.enableRotation();
 
-	// After initial/any style load, assert the captured pose exactly
+	// After style load, assert the captured pose ONCE (no easing)
 	map2d.once('styledata', () => {
 		if (_handoffPose) {
-			try { map2d.stop(); } catch (_) {}
+			try { map2d.stop(); } catch (_) { }
 			map2d.jumpTo({
-			center: [_handoffPose.center.lon, _handoffPose.center.lat],
-			zoom: _handoffPose.zoom,
-			bearing: _handoffPose.bearing,
-			pitch: 0
+				center: [_handoffPose.center.lon, _handoffPose.center.lat],
+				zoom: _handoffPose.zoom,
+				bearing: _handoffPose.bearing,
+				pitch: 0
 			});
 		}
 	});
 
-	// ----- Exit back to 3D when zooming out past threshold -----
-	const maybeExit2D = () => {
-		if (!map2dVisible) return;                    // only if we’re currently in 2D
-		const z = map2d.getZoom();
-		if (z <= HANDOFF_Z_OUT) {
-			try { map2d.stop(); } catch (_) { }          // freeze inertia/easing
-			const c = map2d.getCenter();
-			const b = map2d.getBearing();
-			// Snap instantly to the same pose (no tween)
-			animateCenterOnGlobe(c.lat, normalizeLon(c.lng), { targetBearingDeg: b, duration: 0 });
-			// Ensure no residual motion carries over
-			if (typeof spinVel !== 'undefined' && spinVel.set) spinVel.set(0, 0, 0);
-			if (typeof navTween !== 'undefined') navTween = null;
-			hideMap2D(true); // keep your nudge/cooldown to avoid immediate re-entry
-		}
-	};
-
-	// Avoid duplicate bindings if ensureMap is called again
-	if (map2d._maybeExit2D) {
-		map2d.off('zoom', map2d._maybeExit2D);
-		map2d.off('zoomend', map2d._maybeExit2D);
-		map2d.off('moveend', map2d._maybeExit2D);
-		map2d.off('wheel', map2d._maybeExit2D);
-	}
-	map2d._maybeExit2D = maybeExit2D;
-	map2d.on('zoom', maybeExit2D);
-	map2d.on('zoomend', maybeExit2D);
-	map2d.on('moveend', maybeExit2D);
-	map2d.on('wheel', maybeExit2D);
-
+	bindExitHandlerOnce(map2d);
 	return map2d;
+
+	// ---- inner helper: bind exit only once, snap back to 3D exactly ----
+	function bindExitHandlerOnce(map) {
+		if (map._exitBound) return;
+
+		const maybeExit2D = () => {
+			if (!map2dVisible) return;
+			const z = map.getZoom();
+			if (z <= HANDOFF_Z_OUT) {
+				try { map.stop(); } catch (_) { }
+				const c = map.getCenter();
+				const b = map.getBearing();
+
+				// Snap to same pose in 3D (no slide) and preserve rotation exactly
+				animateCenterOnGlobe(c.lat, normalizeLon(c.lng), {
+					targetBearingDeg: b,
+					duration: 0
+				});
+
+				// Kill any residual 3D motion
+				if (typeof spinVel !== 'undefined' && spinVel.set) spinVel.set(0, 0, 0);
+				if (typeof navTween !== 'undefined') navTween = null;
+
+				// Gentle nudge + short cooldown to avoid immediate re-entry
+				hideMap2D(true);
+			}
+		};
+
+		map.on('zoom', maybeExit2D);
+		map.on('zoomend', maybeExit2D);
+		map.on('moveend', maybeExit2D);
+		map._exitBound = true;
+	}
 }
 
 
 
-function showMap2D(centerLL, zoom) {
-	const stylePref = defaultMapStyleFromEarthControls();
-	const bearing = (() => {
-		const b = screenNorthBearingDegAt(centerLL);
-		return Number.isFinite(b) ? b : 0;
-	})();
 
-	// Capture the exact pose we want MapLibre to use
+
+function showMap2D(centerLL, zoom) {
+
+	const stylePref = defaultMapStyleFromEarthControls();
+	const bearing = screenNorthBearingDegAt(centerLL);   // <-- use the exact helper above
+
 	_handoffPose = {
 		center: { lat: centerLL.lat, lon: normalizeLon(centerLL.lon) },
 		zoom,
 		bearing
 	};
 
+	_justEntered2D = true;        // you already added this flag
 	ensureMap(centerLL, zoom, stylePref);
 
 	// Show the overlay and route input to MapLibre
@@ -2037,27 +2060,25 @@ function hideMap2D(nudgeOut = false) {
 	renderer.domElement.style.pointerEvents = '';
 
 	if (nudgeOut) {
-		// Current estimated zoom (3D)
-		// If your estimateMapZoom supports a center override, you can pass currentCenterLatLon() explicitly.
-		const zNow = (estimateMapZoom.length >= 1) ? estimateMapZoom(currentCenterLatLon()) : estimateMapZoom();
+		// Current estimated 3D zoom (works with either signature of estimateMapZoom)
+		const ll = (typeof currentCenterLatLon === 'function') ? currentCenterLatLon() : { lat: 0, lon: 0 };
+		const zNow = (estimateMapZoom.length >= 1) ? estimateMapZoom(ll) : estimateMapZoom();
 
-		// Push to a target comfortably below HANDOFF_Z_IN.
-		// Using OUT - 0.2 ensures we land *inside* the hysteresis band.
-		const targetZ = Math.min(HANDOFF_Z_OUT - 0.2, HANDOFF_Z_IN - 0.6);
+		// Land just inside the OUT side with a very small push.
+		// Aim roughly 0.2–0.3 zoom levels below IN, but cap the push so it never feels big.
+		const safety = 0.005;
+		const targetZ = Math.min(HANDOFF_Z_IN - 0.20, HANDOFF_Z_OUT - safety);
 
-		if (zNow > targetZ) {
-			// zoom distance scaling: Δz corresponds to multiplying distance by 2^(Δz)
-			const delta = zNow - targetZ;
-			const factor = Math.pow(2, delta);
-
+		if (Number.isFinite(zNow) && zNow > targetZ + 1e-3) {
+			const delta = zNow - targetZ;                   // desired Δz
+			const capped = Math.min(delta, 0.35);           // cap to ~0.35 levels max
+			const factor = Math.pow(2, capped);             // distance multiplier for Δz
 			const d0 = _preMapCamDist || cameraDistanceToGlobeCenter();
 			setCameraDistance(d0 * factor);
 		}
 
-		// Give the animation loop ample time before it can re-enter 2D again
-		_handoffCooldownUntil = performance.now() + 1400; // 1.4s feels solid on trackpads
+		_handoffCooldownUntil = performance.now() + 800;   // short cooldown
 	}
-
 
 	// Optional: restore markers visibility tied to your checkbox
 	if (markersRoot) markersRoot.style.display = chkLabels?.checked ? '' : 'none';
