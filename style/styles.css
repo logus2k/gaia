@@ -230,3 +230,14 @@ input[type="search"] {
     font-size: 11px;
     margin-top: 4px;
 }
+
+/* 2D map overlay */
+#map2d {
+  position: fixed;
+  inset: 0;
+  display: none;
+  z-index: 50; /* above HUD/canvas */
+}
+#map2d.visible {
+  display: block;
+}

@@ -3,13 +3,18 @@
 
 <head>
 	<meta charset="utf-8" />
-	<title>Conversational Globe</title>
+	<title>Gaia</title>
 	<link rel="stylesheet" href="./style/styles.css" />
+	<link rel="stylesheet" href="./style/maplibre-gl.css" />
 	<link rel="icon" href="data:,">
 	<script type="importmap">{ "imports": { "three": "./library/three.module.min.js" } }</script>
 </head>
 
 <body>
+
+	<!-- 2D map overlay (hidden until handoff) -->
+	<div id="map2d"></div>
+
 	<div id="overlay">
 		<!-- RIGHT HUD: main controls -->
 		<div class="hud right" id="hud-main">
@@ -168,7 +173,7 @@
 			<!-- still inside <div class="hud left" id="hud-explorer"> -->
 			<div class="sep"></div>
 
-			<h2>Selection styling</h2>
+			<h1>Selection styling</h1>
 
 			<div class="row">
 				<label><input id="sel-border-toggle" type="checkbox" checked> Highlight border</label>
@@ -202,6 +207,8 @@
 	<svg id="callout-svg" style="position:absolute; inset:0; pointer-events:none; z-index:5;" width="0"	height="0"></svg>
 
 	<div id="callout" class="hud left" style="position:absolute; display:none; z-index:6; max-width:320px;"></div>
+
+	<script src="./library/maplibre-gl.js"></script>
 
 	<!-- Browser entry -->
 	<script type="module" src="./script/app.js"></script>

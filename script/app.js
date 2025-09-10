@@ -21,6 +21,34 @@ const SETTINGS = {
 };
 
 
+// ---------- 2D Map handoff (MapLibre) ----------
+const TILE_SIZE = 512;           // WebMercator world size used by MapLibre zoom
+
+const EARTH_R_METERS = SETTINGS.earthRadiusKm * 1000;
+
+// Handoff thresholds (WebMercator zoom)
+const HANDOFF_Z_IN = 5.0;
+const HANDOFF_Z_OUT = 5.0;
+
+let map2d = null;                   // MapLibre instance
+let map2dVisible = false;
+let lastEstimatedZ = 3.0;
+let lastCenterLL = { lat: 0, lon: 0 };
+
+const STREETS_STYLE_URL = 'https://tiles.stadiamaps.com/styles/osm_bright.json';
+const AERIAL_STYLE_OBJ = {
+	version: 8,
+	sources: {
+		'esri-satellite': {
+			type: 'raster',
+			tiles: ['https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+			tileSize: 256,
+			attribution: 'Esri, Maxar, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community'
+		}
+	},
+	layers: [{ id: 'esri-satellite-layer', type: 'raster', source: 'esri-satellite' }]
+};
+
 // ---------- Utils ----------
 function clamp01(x) { return Math.max(0, Math.min(1, x)); }
 function hexFromInt(i) { return '#' + i.toString(16).padStart(6, '0'); }
@@ -52,6 +80,100 @@ function latLonToVector3(latDeg, lonDeg, radius = 1) {
 	const lat = THREE.MathUtils.degToRad(latDeg), lon = THREE.MathUtils.degToRad(lonDeg);
 	return new THREE.Vector3(radius * Math.cos(lat) * Math.cos(lon), radius * Math.sin(lat), -radius * Math.cos(lat) * Math.sin(lon));
 }
+
+
+function haversineMeters(lat1deg, lon1deg, lat2deg, lon2deg) {
+	const toRad = THREE.MathUtils.degToRad;
+	const φ1 = toRad(lat1deg), φ2 = toRad(lat2deg);
+	const Δφ = φ2 - φ1;
+	const Δλ = toRad(lon2deg - lon1deg);
+	const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+	const c = 2 * Math.asin(Math.min(1, Math.sqrt(a)));
+	return EARTH_R_METERS * c;
+}
+
+function latLonAtScreen(clientX, clientY) {
+	const hit = pickLatLonFromClient(clientX, clientY);
+	if (!hit) return null;
+	return { lat: hit.latDeg, lon: hit.lonDeg };
+}
+
+function currentCenterLatLon() {
+	const p = raySphereCenterPoint();
+	if (!p) return lastCenterLL;
+	const { latDeg, lonDeg } = latLonFromWorldPoint(p);
+	lastCenterLL = { lat: latDeg, lon: lonDeg };
+	return lastCenterLL;
+}
+
+/** Estimate WebMercator zoom by measuring meters-per-pixel on the globe near screen center. */
+function estimateMapZoom(centerOverride = null) {
+	const center = centerOverride || currentCenterLatLon();
+	const φ = THREE.MathUtils.degToRad(center.lat);
+
+	// Small angular steps
+	const d = 0.20; // degrees
+
+	// Build 3 local points at the same radius
+	const pC = latLonToVector3(center.lat, center.lon, R);
+	const pE = latLonToVector3(center.lat, center.lon + d, R);
+	const pN = latLonToVector3(center.lat + d, center.lon, R);
+
+	// Project to screen
+	const sC = worldToScreen(earth.localToWorld(pC.clone()));
+	const sE = worldToScreen(earth.localToWorld(pE.clone()));
+	const sN = worldToScreen(earth.localToWorld(pN.clone()));
+
+	const pxEW = Math.hypot(sE.x - sC.x, sE.y - sC.y);
+	const pxNS = Math.hypot(sN.x - sC.x, sN.y - sC.y);
+	if (pxEW < 1e-3 || pxNS < 1e-3) return lastEstimatedZ;
+
+	// True distances for those tiny steps
+	const mEW = haversineMeters(center.lat, center.lon, center.lat, center.lon + d);
+	const mNS = haversineMeters(center.lat, center.lon, center.lat + d, center.lon);
+
+	// Average meters-per-pixel
+	const mpp = 0.5 * (mEW / pxEW + mNS / pxNS);
+
+	// WebMercator zoom (512px world)
+	const z = Math.log2((Math.cos(φ) * 2 * Math.PI * EARTH_R_METERS) / (TILE_SIZE * mpp));
+	lastEstimatedZ = THREE.MathUtils.clamp(z, 0, 22);
+	return lastEstimatedZ;
+}
+
+
+let _handoffCooldownUntil = 0;
+let _preMapCamDist = null;
+
+function cameraDistanceToGlobeCenter() {
+	const c = new THREE.Vector3(); globe.getWorldPosition(c);
+	return camera.position.distanceTo(c);
+}
+function setCameraDistance(dist) {
+	const c = new THREE.Vector3(); globe.getWorldPosition(c);
+	const v = camera.position.clone().sub(c).normalize().multiplyScalar(dist);
+	camera.position.copy(c.clone().add(v));
+	camera.updateProjectionMatrix();
+}
+
+function normalizeLon(lon) {
+	// Keep longitude in [-180, 180)
+	let L = ((lon + 180) % 360 + 360) % 360 - 180;
+	return Math.abs(L) < 1e-12 ? 0 : L;
+}
+
+function tryEnter2D() {
+  if (map2dVisible) return;
+  if (performance.now() < _handoffCooldownUntil) return;
+
+  // Use cursor LL if you have it; otherwise fall back to current center
+  const ll = (typeof handoffCenterLL === 'function') ? handoffCenterLL() : currentCenterLatLon();
+  const zEst = (estimateMapZoom.length >= 1) ? estimateMapZoom(ll) : estimateMapZoom();
+
+  if (zEst >= HANDOFF_Z_IN) showMap2D(ll, zEst);
+}
+
+
 
 // ---------- Renderer / Scene / Camera ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -100,86 +222,101 @@ selTex.colorSpace = THREE.SRGBColorSpace;
 selTex.anisotropy = renderer.capabilities.anisotropy;
 
 const selectedOverlay = new THREE.Mesh(
-  new THREE.SphereGeometry(R * 1.004, 96, 96),
-  new THREE.MeshBasicMaterial({
-    map: selTex,
-    transparent: true,
-    depthTest: true,
-    depthWrite: false
-  })
+	new THREE.SphereGeometry(R * 1.004, 96, 96),
+	new THREE.MeshBasicMaterial({
+		map: selTex,
+		transparent: true,
+		depthTest: true,
+		depthWrite: false
+	})
 );
 selectedOverlay.renderOrder = 1.5; // globe(0) < overlay(1.5) < clouds(1) if you want clouds above, set to 0.5 instead
 globe.add(selectedOverlay);
 
 function clearSelectionOverlay() {
-  selCtx.clearRect(0, 0, selCanvas.width, selCanvas.height);
-  selTex.needsUpdate = true;
+	selCtx.clearRect(0, 0, selCanvas.width, selCanvas.height);
+	selTex.needsUpdate = true;
 }
 
 function lonLatToPx(lon, lat) {
-  const x = ( (lon + 180) / 360 ) * selCanvas.width;
-  const y = ( (90 - lat) / 180 ) * selCanvas.height;
-  return [x, y];
+	const x = ((lon + 180) / 360) * selCanvas.width;
+	const y = ((90 - lat) / 180) * selCanvas.height;
+	return [x, y];
 }
 
 // Draw one polygon (outer + holes) at an optional X offset for seam handling
 function drawPolygon(poly, xOffset = 0) {
-  const path = new Path2D();
-  for (let r = 0; r < poly.length; r++) {
-    const ring = poly[r];
-    for (let i = 0; i < ring.length; i++) {
-      const [lon, lat] = ring[i];
-      const [x, y] = lonLatToPx(lon, lat);
-      if (i === 0) path.moveTo(x + xOffset, y);
-      else path.lineTo(x + xOffset, y);
-    }
-    path.closePath();
-  }
-  return path;
+	const path = new Path2D();
+	for (let r = 0; r < poly.length; r++) {
+		const ring = poly[r];
+		for (let i = 0; i < ring.length; i++) {
+			const [lon, lat] = ring[i];
+			const [x, y] = lonLatToPx(lon, lat);
+			if (i === 0) path.moveTo(x + xOffset, y);
+			else path.lineTo(x + xOffset, y);
+		}
+		path.closePath();
+	}
+	return path;
 }
 
 function paintSelectionToOverlay(country, opts) {
-  // opts: { fillRGBA?: [r,g,b,a], strokeRGBA?: [r,g,b,a], strokePx?: number }
-  clearSelectionOverlay();
-  if (!country?.polygons?.length) return;
+	// opts: { fillRGBA?: [r,g,b,a], strokeRGBA?: [r,g,b,a], strokePx?: number }
+	clearSelectionOverlay();
+	if (!country?.polygons?.length) return;
 
-  const refLon = country.centroid?.lon ?? 0;
+	const refLon = country.centroid?.lon ?? 0;
 
-  // Unwrap rings around the centroid so we don't cross the dateline
-  const polys = country.polygons.map(poly => poly.map(ring => unwrapRingToRef(ring, refLon)));
+	// Unwrap rings around the centroid so we don't cross the dateline
+	const polys = country.polygons.map(poly => poly.map(ring => unwrapRingToRef(ring, refLon)));
 
-  // Optionally draw twice shifted by ±width to catch seam overlap
-  const shifts = [0, -selCanvas.width, selCanvas.width];
+	// Optionally draw twice shifted by ±width to catch seam overlap
+	const shifts = [0, -selCanvas.width, selCanvas.width];
 
-  for (const poly of polys) {
-    for (const shift of shifts) {
-      const path = drawPolygon(poly, shift);
+	for (const poly of polys) {
+		for (const shift of shifts) {
+			const path = drawPolygon(poly, shift);
 
-      if (opts.fillRGBA) {
-        const [fr,fg,fb,fa] = opts.fillRGBA;
-        selCtx.fillStyle = `rgba(${fr},${fg},${fb},${fa})`;
-        selCtx.fill(path, 'evenodd');
-      }
-      if (opts.strokeRGBA) {
-        const [sr,sg,sb,sa] = opts.strokeRGBA;
-        selCtx.lineWidth = opts.strokePx ?? 2;
-        selCtx.strokeStyle = `rgba(${sr},${sg},${sb},${sa})`;
-        selCtx.stroke(path);
-      }
-    }
-  }
-  selTex.needsUpdate = true;
+			if (opts.fillRGBA) {
+				const [fr, fg, fb, fa] = opts.fillRGBA;
+				selCtx.fillStyle = `rgba(${fr},${fg},${fb},${fa})`;
+				selCtx.fill(path, 'evenodd');
+			}
+			if (opts.strokeRGBA) {
+				const [sr, sg, sb, sa] = opts.strokeRGBA;
+				selCtx.lineWidth = opts.strokePx ?? 2;
+				selCtx.strokeStyle = `rgba(${sr},${sg},${sb},${sa})`;
+				selCtx.stroke(path);
+			}
+		}
+	}
+	selTex.needsUpdate = true;
 }
 
 // ---------- Controls (zoom only) ----------
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableRotate = false; controls.enablePan = false; controls.enableZoom = true;
-controls.enableDamping = true; controls.dampingFactor = 0.05;
+controls.enableRotate = false;
+controls.enablePan = false;
+controls.enableZoom = true;
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+// Zoom around cursor (r152+). Harmless no-op if property not present.
+if ('zoomToCursor' in controls) controls.zoomToCursor = true;
+if ('screenSpacePanning' in controls) controls.screenSpacePanning = true;
+
 controls.target.set(0, 0, 0);
 
 const SURFACE = R * ATMO.scale;
-controls.minDistance = SURFACE + 0.5;
+controls.minDistance = SURFACE + 0.15;
 controls.maxDistance = 20;
+
+controls.addEventListener('change', () => {
+  if (!map2dVisible && performance.now() >= _handoffCooldownUntil) {
+	const ll = handoffCenterLL();
+	tryEnter2D();
+  }
+});
+
 
 const earthMatLit = new THREE.MeshPhongMaterial({ shininess: 5, specular: new THREE.Color(0x333333), color: 0xffffff, transparent: false, opacity: 1 });
 const earthMatUnlit = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: false, opacity: 1 });
@@ -1072,22 +1209,22 @@ globeHexInput.addEventListener('input', () => {
 let lastSelectedCountry = null;
 
 function applySelectionStyling() {
-  if (!lastSelectedCountry) { clearSelectionOverlay(); return; }
+	if (!lastSelectedCountry) { clearSelectionOverlay(); return; }
 
-  const wantFill = selFillToggle.checked;
-  const wantStroke = selBorderToggle.checked;
+	const wantFill = selFillToggle.checked;
+	const wantStroke = selBorderToggle.checked;
 
-  const fill = wantFill ? parseHexRGBA(selFillHex.value) : null;
-  const stroke = wantStroke ? parseHexRGBA(selBorderHex.value) : null;
+	const fill = wantFill ? parseHexRGBA(selFillHex.value) : null;
+	const stroke = wantStroke ? parseHexRGBA(selBorderHex.value) : null;
 
-  const fillRGBA   = fill   ? [ (fill.rgb>>16)&255, (fill.rgb>>8)&255, fill.rgb&255, fill.a ] : null;
-  const strokeRGBA = stroke ? [ (stroke.rgb>>16)&255, (stroke.rgb>>8)&255, stroke.rgb&255, stroke.a ] : null;
+	const fillRGBA = fill ? [(fill.rgb >> 16) & 255, (fill.rgb >> 8) & 255, fill.rgb & 255, fill.a] : null;
+	const strokeRGBA = stroke ? [(stroke.rgb >> 16) & 255, (stroke.rgb >> 8) & 255, stroke.rgb & 255, stroke.a] : null;
 
-  paintSelectionToOverlay(lastSelectedCountry, {
-    fillRGBA,
-    strokeRGBA,
-    strokePx: 1  // tweakable; use 3–4 for thicker borders
-  });
+	paintSelectionToOverlay(lastSelectedCountry, {
+		fillRGBA,
+		strokeRGBA,
+		strokePx: 1  // tweakable; use 3–4 for thicker borders
+	});
 }
 
 
@@ -1154,6 +1291,26 @@ const SPIN_HALFLIFE = 0.25; function decayFactor(dt) { return Math.exp(Math.log(
 let navTween = null; // {from, to, t, dur, lastQ, onComplete}
 const Ease = { cubicInOut: (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2) };
 
+
+let _lastPointer = { x: null, y: null };
+let _lastHoverLL = null;
+
+// Track pointer position even when not dragging, to support zoom-around-cursor handoff
+window.addEventListener('pointermove', (e) => {
+	_lastPointer.x = e.clientX; _lastPointer.y = e.clientY;
+	// Update last hover lat/lon under the cursor (if over the globe)
+	const ll = pickLatLonFromClient(e.clientX, e.clientY);
+	if (ll) _lastHoverLL = { lat: ll.latDeg, lon: ll.lonDeg };
+});
+
+// Use cursor focus if available; fall back to screen-center
+function handoffCenterLL() {
+	return (_lastHoverLL && Number.isFinite(_lastHoverLL.lat) && Number.isFinite(_lastHoverLL.lon))
+		? _lastHoverLL
+		: currentCenterLatLon();
+}
+
+
 canvas.addEventListener('pointerdown', (e) => {
 	pointerIsDown = true; canvas.setPointerCapture(e.pointerId);
 	navTween = null; // cancel any in-flight tween on user interaction
@@ -1185,6 +1342,15 @@ canvas.addEventListener('pointermove', (e) => {
 });
 
 const raycaster = new THREE.Raycaster();
+
+window.addEventListener('pointermove', (e) => {
+	_lastPointer.x = e.clientX; _lastPointer.y = e.clientY;
+	const ll = pickLatLonFromClient(e.clientX, e.clientY);
+	if (ll && Number.isFinite(ll.lat) && Number.isFinite(ll.lon)) {
+		_lastHoverLL = { lat: ll.lat, lon: ll.lon };
+	}
+});
+
 function pickLatLonFromClient(clientX, clientY) {
 	const r = renderer.domElement.getBoundingClientRect();
 	const ndc = { x: ((clientX - r.left) / r.width) * 2 - 1, y: -(((clientY - r.top) / r.height) * 2 - 1) };
@@ -1252,7 +1418,7 @@ function centerByCameraDirWorld(dirWorld) {
 }
 
 // ---- Smooth tween helpers for navigation & search ----
-function computeTargetQuatForCenter(latDeg, lonDeg) {
+function computeTargetQuatForCenter(latDeg, lonDeg, opts = {}) {
 	const q0 = globe.quaternion.clone();
 
 	// Step 1: align target to view center
@@ -1262,15 +1428,36 @@ function computeTargetQuatForCenter(latDeg, lonDeg) {
 	const qAlign = new THREE.Quaternion().setFromUnitVectors(vWorld, desired);
 	let q = qAlign.multiply(q0); // q = qAlign * q0
 
-	// Step 2: roll so north is at screen-top
+	// Step 2: roll control
 	const view = cameraViewDir();
 	const northW = LOCAL_Y.clone().applyQuaternion(q).normalize();
 	const a = northW.clone().projectOnPlane(view).normalize();
 	const screenUpW = camera.up.clone().projectOnPlane(view).normalize();
 	if (a.lengthSq() > 1e-12 && screenUpW.lengthSq() > 1e-12) {
-		const angle = signedAngleAroundAxis(a, screenUpW, view);
-		const qRoll = new THREE.Quaternion().setFromAxisAngle(view, angle);
-		q = qRoll.multiply(q);
+
+		if (opts.preserveRoll) {
+			// do nothing: keep whatever screen-roll we currently have
+		} else if (typeof opts.targetBearingDeg === 'number') {
+			// Compute the current screen-bearing of north after Step 1…
+			const d = 0.20;
+			const centerLL = { lat: latDeg, lon: lonDeg };
+			const pC = latLonToVector3(centerLL.lat, centerLL.lon, R).applyQuaternion(q);
+			const pN = latLonToVector3(centerLL.lat + d, centerLL.lon, R).applyQuaternion(q);
+			const sC = worldToScreen(pC);
+			const sN = worldToScreen(pN);
+			const vx = sN.x - sC.x, vy = sN.y - sC.y;
+			const curDeg = (THREE.MathUtils.radToDeg(Math.atan2(vx, -vy)) + 360) % 360;
+			let delta = curDeg - opts.targetBearingDeg;
+			delta = ((delta + 180) % 360) - 180; // shortest direction
+			const qRoll = new THREE.Quaternion().setFromAxisAngle(view, THREE.MathUtils.degToRad(-delta));
+			q = qRoll.multiply(q);
+		} else {
+			// default legacy behavior: north-up
+			const angle = signedAngleAroundAxis(a, screenUpW, view);
+			const qRoll = new THREE.Quaternion().setFromAxisAngle(view, angle);
+			q = qRoll.multiply(q);
+		}
+
 	}
 	return q;
 }
@@ -1285,11 +1472,13 @@ function startNavTweenToQuat(qTarget, dur = 1200, onComplete) {
 		onComplete
 	};
 }
+
 function animateCenterOnGlobe(latDeg, lonDeg, opts = {}) {
-	const qTarget = computeTargetQuatForCenter(latDeg, lonDeg);
+	const qTarget = computeTargetQuatForCenter(latDeg, lonDeg, opts);
 	startNavTweenToQuat(qTarget, opts.duration ?? 1200, opts.onComplete);
 }
 
+/*
 document.getElementById('btn-face-n').addEventListener('click', () => {
 	animateCenterOnGlobe(90, 0);
 });
@@ -1299,6 +1488,7 @@ document.getElementById('btn-face-s').addEventListener('click', () => {
 document.getElementById('btn-face-0').addEventListener('click', () => {
 	animateCenterOnGlobe(0, 0);
 });
+*/
 
 // ---------- View readout ----------
 function latLonFromWorldPoint(worldP) {
@@ -1342,6 +1532,8 @@ window.addEventListener('resize', () => {
 	camera.updateProjectionMatrix();
 	sizeCalloutSvgToViewport();
 	applySkyBrightness();
+
+	if (map2d) map2d.resize();
 });
 
 // ---------- Camera orbit helper ----------
@@ -1354,9 +1546,21 @@ function orbitCameraAroundY(angle) {
 
 // ---------- Animation ----------
 let last = performance.now();
+
 (function animate(now) {
+
 	requestAnimationFrame(animate);
 	const dt = (now - last) / 1000; last = now;
+
+
+	// --- 2D handoff check every ~250ms ---
+	if (!animate._handoffTimer) animate._handoffTimer = 0;
+		animate._handoffTimer += dt;
+		if (animate._handoffTimer >= 0.10) {
+		animate._handoffTimer = 0;
+		tryEnter2D();
+	}
+
 
 	// If a navigation tween is active, drive it; else run autorotate/inertia
 	if (navTween) {
@@ -1389,7 +1593,7 @@ let last = performance.now();
 		}
 	} else {
 		// Autorotate
-		if (!pointerIsDown) {
+		if (!pointerIsDown && !map2dVisible) {
 			const yaw = autorotateSpeed * dt;
 			if (yaw) {
 				// Always rotate the globe
@@ -1420,6 +1624,11 @@ let last = performance.now();
 			spinVel.multiplyScalar(decayFactor(dt));
 		}
 	}
+
+	if (!map2dVisible && performance.now() >= _handoffCooldownUntil) {
+		tryEnter2D();
+	}
+
 
 	atmoUniforms.sunDirW.value.copy(dirLight.position).normalize();
 
@@ -1571,7 +1780,7 @@ function renderSearchResults(items, coords) {
 		const btn = document.createElement('button');
 		btn.textContent = `Go to ${coords.lat.toFixed(4)}°, ${coords.lon.toFixed(4)}°`;
 		btn.addEventListener('click', () => {
-			animateCenterOnGlobe(coords.lat, coords.lon); // smooth center
+			// animateCenterOnGlobe(coords.lat, coords.lon); // smooth center
 			showPicked(coords.lat, coords.lon, countryAtLonLat(coords.lon, coords.lat));
 		});
 
@@ -1583,7 +1792,7 @@ function renderSearchResults(items, coords) {
 		btn.textContent = `${c.name}${iso}`;
 		btn.addEventListener('click', () => {
 			const { lat, lon } = c.centroid;
-			animateCenterOnGlobe(lat, lon); // smooth center for country result
+			// animateCenterOnGlobe(lat, lon); // smooth center for country result
 			// keep current UX: show picked info immediately (no delay)
 			showPicked(lat, lon, c);
 		});
@@ -1612,3 +1821,246 @@ searchBox.addEventListener('input', () => {
 
 searchBtn.addEventListener('click', doSearch);
 searchBox.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
+
+
+const mapDiv = document.getElementById('map2d');
+
+function defaultMapStyleFromEarthControls() {
+	// 'day' -> aerial, 'terrain' -> streets; other modes fall back to aerial
+	const v = modeSel?.value || 'day';
+	return (v === 'terrain') ? 'streets' : 'aerial';
+}
+
+// Bearing of "north" on screen at the current view center (degrees, clockwise from screen-up)
+function screenNorthBearingDegAt(centerLL) {
+	// Exact bearing from camera screen-up to true north on tangent plane at LL
+	const lat = THREE.MathUtils.degToRad(centerLL.lat);
+	const lon = THREE.MathUtils.degToRad(centerLL.lon);
+	const clat = Math.cos(lat), slat = Math.sin(lat);
+	const clon = Math.cos(lon), slon = Math.sin(lon);
+
+	// Surface normal at LL
+	const p = new THREE.Vector3(clat * clon, slat, clat * slon);
+
+	// Local tangent basis: true north & east unit vectors
+	const north = new THREE.Vector3(-slat * clon, clat, -slat * slon).normalize();
+	const east = new THREE.Vector3(-slon, 0, clon).normalize();
+
+	// Camera up in world space
+	const camUpWorld = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion).normalize();
+
+	// Project screen-up into the tangent plane at p
+	const upTangent = camUpWorld.clone().sub(p.clone().multiplyScalar(camUpWorld.dot(p)));
+	if (upTangent.lengthSq() < 1e-12) return 0; // edge case
+
+	upTangent.normalize();
+
+	// Bearing = clockwise degrees from true north to projected screen-up
+	const x = upTangent.dot(east);
+	const y = upTangent.dot(north);
+	let brg = THREE.MathUtils.radToDeg(Math.atan2(x, y));
+	if (brg < 0) brg += 360;
+	return brg;
+}
+
+
+
+let _handoffPose = null;
+
+function ensureMap(centerLL, zoom, stylePref) {
+	const desiredTag = (stylePref === 'streets') ? 'streets' : 'aerial';
+	const bearing = (() => {
+		const b = screenNorthBearingDegAt(centerLL);
+		return Number.isFinite(b) ? b : 0;
+	})();
+
+	if (map2d) {
+		// Reuse existing instance
+		try { map2d.stop(); } catch (_) { }
+
+		// Only change style if needed
+		const needStyleChange = map2d._styleTag !== desiredTag;
+		if (needStyleChange) {
+			if (desiredTag === 'streets') map2d.setStyle(STREETS_STYLE_URL);
+			else map2d.setStyle(AERIAL_STYLE_OBJ);
+			map2d._styleTag = desiredTag;
+
+			// After style load, assert the captured pose exactly
+			map2d.once('styledata', () => {
+				const p = _handoffPose || { center: centerLL, zoom, bearing };
+				try { map2d.stop(); } catch (_) { }
+				map2d.jumpTo({
+					center: [p.center.lon, p.center.lat],
+					zoom: p.zoom,
+					bearing: p.bearing,
+					pitch: 0
+				});
+			});
+		}
+
+		// Immediate assert (covers already-loaded style)
+		const poseNow = _handoffPose || { center: centerLL, zoom, bearing };
+		map2d.jumpTo({
+			center: [poseNow.center.lon, poseNow.center.lat],
+			zoom: poseNow.zoom,
+			bearing: poseNow.bearing,
+			pitch: 0
+		});
+
+		return map2d;
+	}
+
+	// Create the map (first time)
+	map2d = new maplibregl.Map({
+		container: 'map2d',
+		style: (desiredTag === 'streets') ? STREETS_STYLE_URL : AERIAL_STYLE_OBJ,
+		center: [centerLL.lon, centerLL.lat],
+		zoom,
+		bearing,
+		pitch: 0,
+		attributionControl: true
+	});
+	map2d._styleTag = desiredTag;
+
+	// Basic controls
+	map2d.addControl(new maplibregl.NavigationControl(), 'top-right');
+	// Zoom around mouse pointer (noop if already enabled)
+	if (map2d.scrollZoom && map2d.scrollZoom.enable) {
+		map2d.scrollZoom.enable({ around: 'pointer' });
+	}
+
+	// After initial/any style load, assert the captured pose exactly
+	map2d.once('styledata', () => {
+		if (_handoffPose) {
+			try { map2d.stop(); } catch (_) {}
+			map2d.jumpTo({
+			center: [_handoffPose.center.lon, _handoffPose.center.lat],
+			zoom: _handoffPose.zoom,
+			bearing: _handoffPose.bearing,
+			pitch: 0
+			});
+		}
+	});
+
+	// ----- Exit back to 3D when zooming out past threshold -----
+	const maybeExit2D = () => {
+		if (!map2dVisible) return;                    // only if we’re currently in 2D
+		const z = map2d.getZoom();
+		if (z <= HANDOFF_Z_OUT) {
+			try { map2d.stop(); } catch (_) { }          // freeze inertia/easing
+			const c = map2d.getCenter();
+			const b = map2d.getBearing();
+			// Snap instantly to the same pose (no tween)
+			animateCenterOnGlobe(c.lat, normalizeLon(c.lng), { targetBearingDeg: b, duration: 0 });
+			// Ensure no residual motion carries over
+			if (typeof spinVel !== 'undefined' && spinVel.set) spinVel.set(0, 0, 0);
+			if (typeof navTween !== 'undefined') navTween = null;
+			hideMap2D(true); // keep your nudge/cooldown to avoid immediate re-entry
+		}
+	};
+
+	// Avoid duplicate bindings if ensureMap is called again
+	if (map2d._maybeExit2D) {
+		map2d.off('zoom', map2d._maybeExit2D);
+		map2d.off('zoomend', map2d._maybeExit2D);
+		map2d.off('moveend', map2d._maybeExit2D);
+		map2d.off('wheel', map2d._maybeExit2D);
+	}
+	map2d._maybeExit2D = maybeExit2D;
+	map2d.on('zoom', maybeExit2D);
+	map2d.on('zoomend', maybeExit2D);
+	map2d.on('moveend', maybeExit2D);
+	map2d.on('wheel', maybeExit2D);
+
+	return map2d;
+}
+
+
+
+function showMap2D(centerLL, zoom) {
+	const stylePref = defaultMapStyleFromEarthControls();
+	const bearing = (() => {
+		const b = screenNorthBearingDegAt(centerLL);
+		return Number.isFinite(b) ? b : 0;
+	})();
+
+	// Capture the exact pose we want MapLibre to use
+	_handoffPose = {
+		center: { lat: centerLL.lat, lon: normalizeLon(centerLL.lon) },
+		zoom,
+		bearing
+	};
+
+	ensureMap(centerLL, zoom, stylePref);
+
+	// Show the overlay and route input to MapLibre
+	mapDiv.classList.add('visible');
+	map2dVisible = true;
+	renderer.domElement.style.pointerEvents = 'none';
+	navTween = null; spinVel.set(0, 0, 0);
+	_preMapCamDist = cameraDistanceToGlobeCenter();
+
+	// Make sure the map lays out and adopts the captured pose
+	if (map2d) {
+		try { map2d.stop(); } catch (_) { }
+		map2d.resize();
+		// Immediate assert (covers already-loaded style)
+		map2d.jumpTo({
+			center: [_handoffPose.center.lon, _handoffPose.center.lat],
+			zoom: _handoffPose.zoom,
+			bearing: _handoffPose.bearing,
+			pitch: 0
+		});
+		// Assert again right after any style reload finishes
+		map2d.once('styledata', () => {
+			const p = _handoffPose;
+			if (p) {
+				map2d.jumpTo({
+					center: [p.center.lon, p.center.lat],
+					zoom: p.zoom,
+					bearing: p.bearing,
+					pitch: 0
+				});
+			}
+		});
+	}
+
+	// Optional: hide 3D HUD bits while 2D is up
+	if (calloutEl) calloutEl.style.display = 'none';
+	if (markersRoot) markersRoot.style.display = 'none';
+}
+
+
+function hideMap2D(nudgeOut = false) {
+	mapDiv.classList.remove('visible');
+	map2dVisible = false;
+	renderer.domElement.style.pointerEvents = '';
+
+	if (nudgeOut) {
+		// Current estimated zoom (3D)
+		// If your estimateMapZoom supports a center override, you can pass currentCenterLatLon() explicitly.
+		const zNow = (estimateMapZoom.length >= 1) ? estimateMapZoom(currentCenterLatLon()) : estimateMapZoom();
+
+		// Push to a target comfortably below HANDOFF_Z_IN.
+		// Using OUT - 0.2 ensures we land *inside* the hysteresis band.
+		const targetZ = Math.min(HANDOFF_Z_OUT - 0.2, HANDOFF_Z_IN - 0.6);
+
+		if (zNow > targetZ) {
+			// zoom distance scaling: Δz corresponds to multiplying distance by 2^(Δz)
+			const delta = zNow - targetZ;
+			const factor = Math.pow(2, delta);
+
+			const d0 = _preMapCamDist || cameraDistanceToGlobeCenter();
+			setCameraDistance(d0 * factor);
+		}
+
+		// Give the animation loop ample time before it can re-enter 2D again
+		_handoffCooldownUntil = performance.now() + 1400; // 1.4s feels solid on trackpads
+	}
+
+
+	// Optional: restore markers visibility tied to your checkbox
+	if (markersRoot) markersRoot.style.display = chkLabels?.checked ? '' : 'none';
+
+	_handoffPose = null;
+}

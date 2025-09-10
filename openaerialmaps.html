@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Map Toggling with Satellite Imagery</title>
+    <link href="https://unpkg.com/maplibre-gl@4.3.2/dist/maplibre-gl.css" rel="stylesheet" />
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { height: 100vh; width: 100%; }
+        .map-overlay {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            z-index: 1;
+        }
+        .map-overlay button {
+            background-color: #337ab7;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        .map-overlay button:hover {
+            background-color: #286090;
+        }
+    </style>
+</head>
+<body>
+
+<div id="map"></div>
+<div class="map-overlay">
+    <button id="streets-button">Streets</button>
+    <button id="aerial-button">Aerial</button>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@4.3.2/dist/maplibre-gl.js"></script>
+<script>
+    const STREETS_STYLE = 'https://tiles.stadiamaps.com/styles/osm_bright.json';
+    const AERIAL_STYLE = {
+        'version': 8,
+        'sources': {
+            'esri-satellite': {
+                'type': 'raster',
+                'tiles': [
+                    'https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                ],
+                'tileSize': 256,
+                'attribution': 'Esri, Maxar, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community'
+            }
+        },
+        'layers': [{
+            'id': 'esri-satellite-layer',
+            'type': 'raster',
+            'source': 'esri-satellite'
+        }]
+    };
+
+    const map = new maplibregl.Map({
+        container: 'map',
+        style: STREETS_STYLE,
+        center: [-9.1393, 38.7223],
+        zoom: 13
+    });
+    
+    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+    document.getElementById('streets-button').addEventListener('click', () => {
+        map.setStyle(STREETS_STYLE);
+    });
+
+    document.getElementById('aerial-button').addEventListener('click', () => {
+        map.setStyle(AERIAL_STYLE);
+    });
+</script>
+
+</body>
+</html>
