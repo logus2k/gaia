@@ -4,6 +4,8 @@ import { SunCalcUTC } from "../script/sunset.js";
 import { MiniGlobeOverlay } from "../script/mini.globe.js";
 
 
+SunCalcUTC.setLongitudeConvention('east');
+
 // ---------- Settings (baseline) ----------
 const SETTINGS = {
 	dayTexture: '../data/world.topo.bathy.200412.3x21600x10800.jpg',
@@ -259,8 +261,8 @@ function buildMiniGlobeTelemetry() {
     _teleCache.lastSunsetMs = now;
     _teleCache.lastSunsetLL = { ...centerLL };
 
-	// const sunsetUTC = SunCalcUTC.computeSunsetUTC(centerLL, now);
-    _teleCache.sunset = SunCalcUTC.computeSunsetSolar(centerLL, now);
+	_teleCache.sunset = SunCalcUTC.computeSunsetUTC(centerLL, now);
+    // _teleCache.sunset = SunCalcUTC.computeSunsetSolar(centerLL, now);
   }
 
   return {
