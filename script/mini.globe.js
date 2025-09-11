@@ -18,7 +18,7 @@ export class MiniGlobeOverlay {
     setInfoProvider(fn) {
         this.infoProvider = typeof fn === 'function' ? fn : null;
     }
-   
+
     init() {
         this.createCanvas();
         this.setupRenderer();
@@ -27,7 +27,7 @@ export class MiniGlobeOverlay {
         this.addLabel();
         this.render(); // initial test render
     }
-   
+
     createCanvas() {
         this.canvas = document.createElement('canvas');
         this.canvas.width = this.size;
@@ -40,7 +40,7 @@ export class MiniGlobeOverlay {
         this.canvas.style.background = 'transparent';
         document.body.appendChild(this.canvas);
     }
-   
+
     setupRenderer() {
         this.renderer = new THREE.WebGLRenderer({
             canvas: this.canvas,
@@ -51,15 +51,15 @@ export class MiniGlobeOverlay {
         this.renderer.setClearColor(0x000000, 0.0); // Fully transparent background
         this.renderer.setPixelRatio(window.devicePixelRatio || 1);
     }
-   
+
     createScene() {
         this.scene = new THREE.Scene();
-       
+
         // Mini camera - positioned to see the globe clearly
         this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
         this.camera.position.set(0, 0, 3);
         this.camera.lookAt(0, 0, 0);
-       
+
         // Very transparent globe
         const geometry = new THREE.SphereGeometry(1, 32, 16);
         const material = new THREE.MeshBasicMaterial({
@@ -69,29 +69,29 @@ export class MiniGlobeOverlay {
         });
         this.miniGlobe = new THREE.Mesh(geometry, material);
         this.scene.add(this.miniGlobe);
-       
+
         // Basic lighting
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
         this.scene.add(ambientLight);
     }
-   
+
     addOrientationIndicators() {
         if (!this.miniGlobe) return;
-       
+
         // North pole indicator (thick red line)
         const northGeometry = new THREE.CylinderGeometry(0.03, 0.03, 0.2, 8);
         const northMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
         const northPole = new THREE.Mesh(northGeometry, northMaterial);
         northPole.position.set(0, 1.1, 0);
         this.miniGlobe.add(northPole);
-       
+
         // South pole indicator (thick blue line)
         const southGeometry = new THREE.CylinderGeometry(0.03, 0.03, 0.2, 8);
         const southMaterial = new THREE.MeshBasicMaterial({ color: 0x0066ff });
         const southPole = new THREE.Mesh(southGeometry, southMaterial);
         southPole.position.set(0, -1.1, 0);
         this.miniGlobe.add(southPole);
-       
+
         // West indicator (magenta line at 90°W)
         const westGeometry = new THREE.CylinderGeometry(0.03, 0.03, 0.2, 8);
         const westMaterial = new THREE.MeshBasicMaterial({ color: 0xff00ff });
@@ -99,7 +99,7 @@ export class MiniGlobeOverlay {
         westPole.position.set(0, 0, -1.1);
         westPole.rotation.x = Math.PI / 2;
         this.miniGlobe.add(westPole);
-       
+
         // East indicator (cyan line at 90°E)
         const eastGeometry = new THREE.CylinderGeometry(0.03, 0.03, 0.2, 8);
         const eastMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff });
@@ -107,14 +107,14 @@ export class MiniGlobeOverlay {
         eastPole.position.set(0, 0, 1.1);
         eastPole.rotation.x = Math.PI / 2;
         this.miniGlobe.add(eastPole);
-       
+
         // Equator ring (green)
         const ringGeometry = new THREE.TorusGeometry(1.01, 0.015, 8, 32);
         const ringMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
         const equatorRing = new THREE.Mesh(ringGeometry, ringMaterial);
         equatorRing.rotation.x = Math.PI / 2;
         this.miniGlobe.add(equatorRing);
-       
+
         // Prime meridian indicator (yellow line)
         const lineGeometry = new THREE.CylinderGeometry(0.015, 0.015, 2.05, 8);
         const lineMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
@@ -122,16 +122,16 @@ export class MiniGlobeOverlay {
         meridianLine.position.set(1, 0, 0);
         meridianLine.rotation.z = Math.PI / 2;
         this.miniGlobe.add(meridianLine);
-       
+
         // Graticule
         this.addGraticule();
     }
-   
+
     addGraticule() {
         if (!this.miniGlobe) return;
-       
+
         const graticuleGroup = new THREE.Group();
-       
+
         // Latitude lines
         for (let lat = -75; lat <= 75; lat += 15) {
             if (lat === 0) continue; // skip equator (already drawn)
@@ -146,7 +146,7 @@ export class MiniGlobeOverlay {
             latLine.rotation.x = Math.PI / 2;
             graticuleGroup.add(latLine);
         }
-       
+
         // Longitude lines
         for (let lon = 0; lon < 360; lon += 15) {
             if (lon === 0) continue; // skip prime meridian (already drawn)
@@ -158,10 +158,10 @@ export class MiniGlobeOverlay {
             lonLine.rotation.y = THREE.MathUtils.degToRad(lon);
             graticuleGroup.add(lonLine);
         }
-       
+
         this.miniGlobe.add(graticuleGroup);
     }
-   
+
     addLabel() {
         const label = document.createElement('div');
         label.style.position = 'fixed';
@@ -181,11 +181,11 @@ export class MiniGlobeOverlay {
         label.textContent = '';
         label.id = 'mini-globe-label';
         document.body.appendChild(label);
-       
+
         // Add N label overlaid on the canvas and keep it aligned/offset
         this.addPoleLabels();
     }
-   
+
     addPoleLabels() {
         // North label (dynamic, sticky with north pole)
         const northLabel = document.createElement('div');
@@ -244,7 +244,7 @@ export class MiniGlobeOverlay {
                         const py = northScreen.y + uy * offset;
 
                         northLabel.style.left = `${px}px`;
-                        northLabel.style.top  = `${py}px`;
+                        northLabel.style.top = `${py}px`;
                         northLabel.style.display = 'block';
                         northLabel.style.transformOrigin = '50% 50%';
                         northLabel.style.transform = `translate(-50%, -50%) rotate(${angleDeg + 90}deg)`;
@@ -292,30 +292,30 @@ export class MiniGlobeOverlay {
             const lat = telemetry.centerLL?.lat, lon = telemetry.centerLL?.lon;
 
             const altitudeStr = Number.isFinite(telemetry.altitudeKm)
-              ? `${telemetry.altitudeKm.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Km`
-              : '—';
+                ? `${telemetry.altitudeKm.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Km`
+                : '—';
 
             const bearingStr = Number.isFinite(telemetry.bearingDeg)
-              ? `${telemetry.bearingDeg.toFixed(1)}°`
-              : '—';
+                ? `${telemetry.bearingDeg.toFixed(1)}°`
+                : '—';
 
             const speedStr = Number.isFinite(telemetry.speedKmh)
-              ? `${telemetry.speedKmh.toLocaleString(undefined, { maximumFractionDigits: 2 })} Km/h`
-              : '—';
+                ? `${telemetry.speedKmh.toLocaleString(undefined, { maximumFractionDigits: 2 })} Km/h`
+                : '—';
 
             const parts = [
-              `TIME ${telemetry.timeUTC ?? '—'}`,
-              `LOCATION ${telemetry.location ?? '—'}`,
-              `SUNSET ${telemetry.sunset ?? '—'}`,
-              `SPEED ${speedStr}`,
-              `ALTITUDE ${altitudeStr}`,
-              `BEARING ${bearingStr}`,
-              `LATITUDE ${Number.isFinite(lat) ? lat.toFixed(2) : '—'}`,
-              `LONGITUDE ${Number.isFinite(lon) ? lon.toFixed(2) : '—'}`,
-              `STATUS ${telemetry.status ?? 'Online'}`
+                `LOCATION ${telemetry.location ?? '-'}`,
+                `TIME ${telemetry.timeUTC ?? '—'}`,
+                `SPEED ${speedStr}`,
+                `ALTITUDE ${altitudeStr}`,
+                `LATITUDE ${Number.isFinite(lat) ? lat.toFixed(2) : '—'}`,
+                `LONGITUDE ${Number.isFinite(lon) ? lon.toFixed(2) : '—'}`,
+                `SUNSET ${telemetry.sunset ?? '—'}`,
+                `BEARING ${bearingStr}`,
+                `STATUS ${telemetry.status ?? 'Online'}`
             ];
 
-            label.textContent = parts.join(' | ');
+            label.textContent = parts.join('\u00A0\u00A0\u00A0');
         }
 
         this.render();
@@ -333,30 +333,30 @@ export class MiniGlobeOverlay {
             const lat = telemetry.centerLL?.lat, lon = telemetry.centerLL?.lon;
 
             const altitudeStr = Number.isFinite(telemetry.altitudeKm)
-              ? `${telemetry.altitudeKm.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Km`
-              : '—';
+                ? `${telemetry.altitudeKm.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Km`
+                : '—';
 
             const bearingStr = Number.isFinite(telemetry.bearingDeg)
-              ? `${telemetry.bearingDeg.toFixed(1)}°`
-              : '—';
+                ? `${telemetry.bearingDeg.toFixed(1)}°`
+                : '—';
 
             const speedStr = Number.isFinite(telemetry.speedKmh)
-              ? `${telemetry.speedKmh.toLocaleString(undefined, { maximumFractionDigits: 2 })} Km/h`
-              : '—';
+                ? `${telemetry.speedKmh.toLocaleString(undefined, { maximumFractionDigits: 2 })} Km/h`
+                : '—';
 
             const parts = [
-              `TIME ${telemetry.timeUTC ?? '—'}`,
-              `LOCATION ${telemetry.location ?? '—'}`,
-              `SUNSET ${telemetry.sunset ?? '—'}`,
-              `SPEED ${speedStr}`,
-              `ALTITUDE ${altitudeStr}`,
-              `BEARING ${bearingStr}`,
-              `LATITUDE ${Number.isFinite(lat) ? lat.toFixed(2) : '—'}`,
-              `LONGITUDE ${Number.isFinite(lon) ? lon.toFixed(2) : '—'}`,
-              `STATUS ${telemetry.status ?? 'Online'}`
+                `LOCATION ${telemetry.location ?? 'N/A'}`,
+                `TIME ${telemetry.timeUTC ?? '—'}`,
+                `SPEED ${speedStr}`,
+                `ALTITUDE ${altitudeStr}`,
+                `LATITUDE ${Number.isFinite(lat) ? lat.toFixed(2) : '—'}`,
+                `LONGITUDE ${Number.isFinite(lon) ? lon.toFixed(2) : '—'}`,
+                `BEARING ${bearingStr}`,
+                `SUNSET ${telemetry.sunset ?? '—'}`,
+                `STATUS ${telemetry.status ?? 'Online'}`
             ];
 
-            label.textContent = parts.join(' | ');
+            label.textContent = parts.join('\u00A0\u00A0\u00A0');
             // Optional 2D cue:
             // label.style.color = 'yellow';
         }
@@ -382,7 +382,7 @@ export class MiniGlobeOverlay {
     }
 
     // -------- Common --------
-   
+
     render() {
         if (this.renderer && this.scene && this.camera && this.isVisible) {
             try {
@@ -392,7 +392,7 @@ export class MiniGlobeOverlay {
             }
         }
     }
-   
+
     setVisible(visible) {
         this.isVisible = visible;
         if (this.canvas) {
@@ -403,11 +403,11 @@ export class MiniGlobeOverlay {
         const northLabel = document.getElementById('mini-globe-north-label');
         if (northLabel) northLabel.style.display = visible ? 'block' : 'none';
     }
-   
+
     toggle() {
         this.setVisible(!this.isVisible);
     }
-   
+
     destroy() {
         if (this.canvas && this.canvas.parentNode) this.canvas.parentNode.removeChild(this.canvas);
         const label = document.getElementById('mini-globe-label');
@@ -415,7 +415,7 @@ export class MiniGlobeOverlay {
         const northLabel = document.getElementById('mini-globe-north-label');
         if (northLabel && northLabel.parentNode) northLabel.parentNode.removeChild(northLabel);
         if (this.renderer) this.renderer.dispose();
-       
+
         // Reset instance state
         this.canvas = null;
         this.renderer = null;

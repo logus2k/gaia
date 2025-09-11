@@ -180,86 +180,85 @@ function tryEnter2D() {
 
 
 function buildMiniGlobeTelemetry() {
-  // --- Helpers (scoped) ---
-  function dayOfYearUTC(d) {
-    const start = new Date(Date.UTC(d.getUTCFullYear(), 0, 0));
-    return Math.floor((d - start) / 86400000); // 1..366
-  }
-  function declinationDeg(N) {
-    // Solar declination (good UI approximation)
-    return 23.44 * Math.sin((2 * Math.PI / 365) * (284 + N));
-  }
-  function equationOfTimeMin(N) {
-    // Equation of Time (minutes)
-    const B = 2 * Math.PI * (N - 81) / 364;
-    return 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B);
-  }
-  function computeSunsetUTC(centerLL, δdeg, eotMin) {
-    // Returns "HH:MM:SS UTC" or "—" (polar day/night)
-    const φ = centerLL.lat * Math.PI / 180;
-    const δ = δdeg * Math.PI / 180;
-    const zenith = 90.833 * Math.PI / 180; // std refraction + solar radius
+	// --- Helpers (scoped) ---
+	function dayOfYearUTC(d) {
+		const start = new Date(Date.UTC(d.getUTCFullYear(), 0, 0));
+		return Math.floor((d - start) / 86400000); // 1..366
+	}
+	function declinationDeg(N) {
+		// Solar declination (good UI approximation)
+		return 23.44 * Math.sin((2 * Math.PI / 365) * (284 + N));
+	}
+	function equationOfTimeMin(N) {
+		// Equation of Time (minutes)
+		const B = 2 * Math.PI * (N - 81) / 364;
+		return 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B);
+	}
+	function computeSunsetUTC(centerLL, δdeg, eotMin) {
+		// Returns "HH:MM:SS UTC" or "—" (polar day/night)
+		const φ = centerLL.lat * Math.PI / 180;
+		const δ = δdeg * Math.PI / 180;
+		const zenith = 90.833 * Math.PI / 180; // std refraction + solar radius
 
-    const cosH0 = (Math.cos(zenith) - Math.sin(φ) * Math.sin(δ)) / (Math.cos(φ) * Math.cos(δ));
-    if (cosH0 < -1 || cosH0 > 1) return '—'; // sun never sets/rises
+		const cosH0 = (Math.cos(zenith) - Math.sin(φ) * Math.sin(δ)) / (Math.cos(φ) * Math.cos(δ));
+		if (cosH0 < -1 || cosH0 > 1) return '—'; // sun never sets/rises
 
-    const H0deg = Math.acos(cosH0) * 180 / Math.PI; // hour angle at sunset
-    // Local solar noon (hours)
-    const solarNoon = 12 + (eotMin / 60) - (centerLL.lon / 15);
-    // Sunset in local solar time (hours)
-    const sunsetLST = solarNoon + (H0deg / 15);
-    // Convert to UTC hours
-    const utcHours = sunsetLST + (centerLL.lon / 15) - (eotMin / 60);
+		const H0deg = Math.acos(cosH0) * 180 / Math.PI; // hour angle at sunset
+		// Local solar noon (hours)
+		const solarNoon = 12 + (eotMin / 60) - (centerLL.lon / 15);
+		// Sunset in local solar time (hours)
+		const sunsetLST = solarNoon + (H0deg / 15);
+		// Convert to UTC hours
+		const utcHours = sunsetLST + (centerLL.lon / 15) - (eotMin / 60);
 
-    const h = ((utcHours % 24) + 24) % 24;
-    const hh = String(Math.floor(h)).padStart(2, '0');
-    const mm = String(Math.floor((h % 1) * 60)).padStart(2, '0');
-    const ss = String(Math.round((((h % 1) * 60) % 1) * 60)).padStart(2, '0');
-    return `${hh}:${mm}:${ss} UTC`;
-  }
+		const h = ((utcHours % 24) + 24) % 24;
+		const hh = String(Math.floor(h)).padStart(2, '0');
+		const mm = String(Math.floor((h % 1) * 60)).padStart(2, '0');
+		const ss = String(Math.round((((h % 1) * 60) % 1) * 60)).padStart(2, '0');
+		return `${hh}:${mm}:${ss} UTC`;
+	}
 
-  // --- Existing telemetry pieces ---
-  const centerLL = currentCenterLatLon(); // {lat, lon}
-  const in2D = !!(map2dVisible && typeof map2d?.getBearing === 'function');
+	// --- Existing telemetry pieces ---
+	const centerLL = currentCenterLatLon(); // {lat, lon}
+	const in2D = !!(map2dVisible && typeof map2d?.getBearing === 'function');
 
-  const bearingDeg = in2D
-    ? map2d.getBearing()
-    : screenNorthBearingDegAt(centerLL);
+	const bearingDeg = in2D
+		? map2d.getBearing()
+		: screenNorthBearingDegAt(centerLL);
 
-  const country = countryAtLonLat(centerLL.lon, centerLL.lat);
-  const location = country?.name || '—';
+	const country = countryAtLonLat(centerLL.lon, centerLL.lat);
+	const location = country?.name || 'n/a';
 
-  const v_kms = Math.abs(autorotateSpeed) * SETTINGS.earthRadiusKm;
-  const v_kmh = v_kms * 3600;
+	const v_kms = Math.abs(autorotateSpeed) * SETTINGS.earthRadiusKm;
+	const v_kmh = v_kms * 3600;
 
-  const dist = cameraDistanceToGlobeCenter();     // scene radii
-  const surface = R * ATMO.scale;                 // scene radii
-  const altitudeKm = Math.max(0, (dist - surface) * SETTINGS.earthRadiusKm);
+	const dist = cameraDistanceToGlobeCenter();     // scene radii
+	const surface = R * ATMO.scale;                 // scene radii
+	const altitudeKm = Math.max(0, (dist - surface) * SETTINGS.earthRadiusKm);
 
-  const d = new Date(); // current UTC date/time
-  const timeUTC = `${String(d.getUTCHours()).padStart(2,'0')}:` +
-                  `${String(d.getUTCMinutes()).padStart(2,'0')}:` +
-                  `${String(d.getUTCSeconds()).padStart(2,'0')}.` +
-                  `${String(d.getUTCMilliseconds()).padStart(3,'0')} UTC`;
+	const d = new Date(); // current UTC date/time
+	const timeUTC = `${String(d.getUTCHours()).padStart(2, '0')}:` +
+		`${String(d.getUTCMinutes()).padStart(2, '0')}:` +
+		`${String(d.getUTCSeconds()).padStart(2, '0')} UTC`;
 
-  // --- SUNSET from current UTC date + center lat/lon ---
-  const N = dayOfYearUTC(d);
-  const decl = declinationDeg(N);
-  const eot  = equationOfTimeMin(N);
-  const sunsetUTC = computeSunsetUTC(centerLL, decl, eot);
+	// --- SUNSET from current UTC date + center lat/lon ---
+	const N = dayOfYearUTC(d);
+	const decl = declinationDeg(N);
+	const eot = equationOfTimeMin(N);
+	const sunsetUTC = computeSunsetUTC(centerLL, decl, eot);
 
-  return {
-    mode: in2D ? '2d' : '3d',
-    centerLL,                   // {lat, lon}
-    bearingDeg,                 // number
-    mapBearingDeg: in2D ? bearingDeg : undefined,
-    location,                   // string
-    speedKmh: v_kmh,            // number
-    altitudeKm,                 // number
-    timeUTC,                    // "HH:MM:SS.mmm UTC"
-    sunset: sunsetUTC,          // "HH:MM:SS UTC" or "—"
-    status: 'Online'
-  };
+	return {
+		mode: in2D ? '2d' : '3d',
+		centerLL,                   // {lat, lon}
+		bearingDeg,                 // number
+		mapBearingDeg: in2D ? bearingDeg : undefined,
+		location,                   // string
+		speedKmh: v_kmh,            // number
+		altitudeKm,                 // number
+		timeUTC,                    // "HH:MM:SS.mmm UTC"
+		sunset: sunsetUTC,          // "HH:MM:SS UTC" or "—"
+		status: 'Online'
+	};
 }
 
 
@@ -1004,7 +1003,7 @@ miniGlobeOverlay.init();
 
 // Toggle control
 function toggleMiniGlobe() {
-    miniGlobeOverlay.setVisible(!miniGlobeOverlay.isVisible);
+	miniGlobeOverlay.setVisible(!miniGlobeOverlay.isVisible);
 }
 
 // ---------- Load initial textures & clouds ----------
@@ -1941,250 +1940,250 @@ function defaultMapStyleFromEarthControls() {
 // CORRECTED VERSION: This version properly accounts for globe rotation
 // CORRECTED VERSION: This version properly accounts for globe rotation
 function screenNorthBearingDegAt(centerLL) {
-  const lat = THREE.MathUtils.degToRad(centerLL.lat);
-  const lon = THREE.MathUtils.degToRad(centerLL.lon);
+	const lat = THREE.MathUtils.degToRad(centerLL.lat);
+	const lon = THREE.MathUtils.degToRad(centerLL.lon);
 
-  // Point on unit sphere and local tangent basis (north/east) at that point IN LOCAL COORDS
-  const clat = Math.cos(lat), slat = Math.sin(lat);
-  const clon = Math.cos(lon), slon = Math.sin(lon);
-  const pLocal     = new THREE.Vector3(clat*clon, slat, clat*slon);                       // surface normal (local)
-  const northLocal = new THREE.Vector3(-slat*clon,  clat, -slat*slon).normalize();        // +lat (local)
-  const eastLocal  = new THREE.Vector3(-slon,       0,     clon).normalize();             // +lon (local)
+	// Point on unit sphere and local tangent basis (north/east) at that point IN LOCAL COORDS
+	const clat = Math.cos(lat), slat = Math.sin(lat);
+	const clon = Math.cos(lon), slon = Math.sin(lon);
+	const pLocal = new THREE.Vector3(clat * clon, slat, clat * slon);                       // surface normal (local)
+	const northLocal = new THREE.Vector3(-slat * clon, clat, -slat * slon).normalize();        // +lat (local)
+	const eastLocal = new THREE.Vector3(-slon, 0, clon).normalize();             // +lon (local)
 
-  // *** CRITICAL FIX: Transform to world coordinates using globe rotation ***
-  const p     = pLocal.clone().applyQuaternion(globe.quaternion);
-  const north = northLocal.clone().applyQuaternion(globe.quaternion);
-  const east  = eastLocal.clone().applyQuaternion(globe.quaternion);
+	// *** CRITICAL FIX: Transform to world coordinates using globe rotation ***
+	const p = pLocal.clone().applyQuaternion(globe.quaternion);
+	const north = northLocal.clone().applyQuaternion(globe.quaternion);
+	const east = eastLocal.clone().applyQuaternion(globe.quaternion);
 
-  // Camera "screen up" in world space (this was already correct)
-  const camUpWorld = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion).normalize();
+	// Camera "screen up" in world space (this was already correct)
+	const camUpWorld = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion).normalize();
 
-  // Project screen-up into the tangent plane at p (now using world coords)
-  const upTangent = camUpWorld.clone().sub(p.clone().multiplyScalar(camUpWorld.dot(p)));
-  if (upTangent.lengthSq() < 1e-12) return 0; // looking straight along normal — arbitrary
+	// Project screen-up into the tangent plane at p (now using world coords)
+	const upTangent = camUpWorld.clone().sub(p.clone().multiplyScalar(camUpWorld.dot(p)));
+	if (upTangent.lengthSq() < 1e-12) return 0; // looking straight along normal — arbitrary
 
-  upTangent.normalize();
+	upTangent.normalize();
 
-  // Bearing = clockwise degrees from true north to projected screen-up (now using world coords)
-  const x = upTangent.dot(east);   // component toward east
-  const y = upTangent.dot(north);  // component toward north
-  let brg = THREE.MathUtils.radToDeg(Math.atan2(x, y));
-  if (brg < 0) brg += 360;
-  
-  // *** EXPERIMENTAL FIX: Negate the bearing for MapLibre compatibility ***
-  brg = (360 - brg) % 360;
-  
-  return brg;
+	// Bearing = clockwise degrees from true north to projected screen-up (now using world coords)
+	const x = upTangent.dot(east);   // component toward east
+	const y = upTangent.dot(north);  // component toward north
+	let brg = THREE.MathUtils.radToDeg(Math.atan2(x, y));
+	if (brg < 0) brg += 360;
+
+	// *** EXPERIMENTAL FIX: Negate the bearing for MapLibre compatibility ***
+	brg = (360 - brg) % 360;
+
+	return brg;
 }
 
 
 // Add this temporary test function to your code
 function testBearingCalculation() {
-    // Get current center
-    const centerLL = currentCenterLatLon();
-    
-    // Calculate bearing
-    const bearing = screenNorthBearingDegAt(centerLL);
-    
-    console.log('=== BEARING TEST ===');
-    console.log(`Center: (${centerLL.lat.toFixed(4)}, ${centerLL.lon.toFixed(4)})`);
-    console.log(`Calculated bearing: ${bearing.toFixed(2)}°`);
-    
-    // Test what the current camera "up" vector looks like
-    const camUpWorld = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion).normalize();
-    console.log(`Camera up vector: (${camUpWorld.x.toFixed(3)}, ${camUpWorld.y.toFixed(3)}, ${camUpWorld.z.toFixed(3)})`);
-    
-    // Test globe rotation
-    console.log(`Globe quaternion: (${globe.quaternion.x.toFixed(3)}, ${globe.quaternion.y.toFixed(3)}, ${globe.quaternion.z.toFixed(3)}, ${globe.quaternion.w.toFixed(3)})`);
-    
-    // Test if the bearing makes visual sense
-    if (Math.abs(bearing) < 10) {
-        console.log('→ Screen up points roughly NORTH (expected if globe is "normal" orientation)');
-    } else if (Math.abs(bearing - 90) < 10) {
-        console.log('→ Screen up points roughly EAST');
-    } else if (Math.abs(bearing - 180) < 10) {
-        console.log('→ Screen up points roughly SOUTH (expected if globe is upside down)');
-    } else if (Math.abs(bearing - 270) < 10) {
-        console.log('→ Screen up points roughly WEST');
-    } else {
-        console.log(`→ Screen up points ${bearing.toFixed(1)}° clockwise from north`);
-    }
-    
-    return bearing;
+	// Get current center
+	const centerLL = currentCenterLatLon();
+
+	// Calculate bearing
+	const bearing = screenNorthBearingDegAt(centerLL);
+
+	console.log('=== BEARING TEST ===');
+	console.log(`Center: (${centerLL.lat.toFixed(4)}, ${centerLL.lon.toFixed(4)})`);
+	console.log(`Calculated bearing: ${bearing.toFixed(2)}°`);
+
+	// Test what the current camera "up" vector looks like
+	const camUpWorld = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion).normalize();
+	console.log(`Camera up vector: (${camUpWorld.x.toFixed(3)}, ${camUpWorld.y.toFixed(3)}, ${camUpWorld.z.toFixed(3)})`);
+
+	// Test globe rotation
+	console.log(`Globe quaternion: (${globe.quaternion.x.toFixed(3)}, ${globe.quaternion.y.toFixed(3)}, ${globe.quaternion.z.toFixed(3)}, ${globe.quaternion.w.toFixed(3)})`);
+
+	// Test if the bearing makes visual sense
+	if (Math.abs(bearing) < 10) {
+		console.log('→ Screen up points roughly NORTH (expected if globe is "normal" orientation)');
+	} else if (Math.abs(bearing - 90) < 10) {
+		console.log('→ Screen up points roughly EAST');
+	} else if (Math.abs(bearing - 180) < 10) {
+		console.log('→ Screen up points roughly SOUTH (expected if globe is upside down)');
+	} else if (Math.abs(bearing - 270) < 10) {
+		console.log('→ Screen up points roughly WEST');
+	} else {
+		console.log(`→ Screen up points ${bearing.toFixed(1)}° clockwise from north`);
+	}
+
+	return bearing;
 }
 
 // Add this helper function to force bearing application
 function forceMapBearing(map, bearing, retries = 3) {
-    if (!map || retries <= 0) return;
-    
-    try {
-        map.stop();
-        map.setBearing(bearing);
-        
-        // Verify it took effect
-        setTimeout(() => {
-            const actualBearing = map.getBearing();
-            
-            // Handle bearing wraparound: normalize both to [0, 360) and check difference
-            const normalizedExpected = ((bearing % 360) + 360) % 360;
-            const normalizedActual = ((actualBearing % 360) + 360) % 360;
-            
-            // Calculate the shortest angular difference
-            let diff = Math.abs(normalizedActual - normalizedExpected);
-            if (diff > 180) diff = 360 - diff;
-            
-            // If bearing didn't stick (allowing for small rounding errors), retry
-            if (diff > 1.0) {
-                console.warn(`Bearing application failed. Expected: ${bearing.toFixed(2)}° (normalized: ${normalizedExpected.toFixed(2)}°), Got: ${actualBearing.toFixed(2)}° (normalized: ${normalizedActual.toFixed(2)}°). Diff: ${diff.toFixed(2)}°. Retrying...`);
-                forceMapBearing(map, bearing, retries - 1);
-            } else {
-                console.log(`Bearing successfully applied: ${actualBearing.toFixed(2)}° (expected: ${bearing.toFixed(2)}°, diff: ${diff.toFixed(2)}°)`);
-            }
-        }, 50);
-        
-    } catch (error) {
-        console.error('Error applying bearing:', error);
-        setTimeout(() => forceMapBearing(map, bearing, retries - 1), 100);
-    }
+	if (!map || retries <= 0) return;
+
+	try {
+		map.stop();
+		map.setBearing(bearing);
+
+		// Verify it took effect
+		setTimeout(() => {
+			const actualBearing = map.getBearing();
+
+			// Handle bearing wraparound: normalize both to [0, 360) and check difference
+			const normalizedExpected = ((bearing % 360) + 360) % 360;
+			const normalizedActual = ((actualBearing % 360) + 360) % 360;
+
+			// Calculate the shortest angular difference
+			let diff = Math.abs(normalizedActual - normalizedExpected);
+			if (diff > 180) diff = 360 - diff;
+
+			// If bearing didn't stick (allowing for small rounding errors), retry
+			if (diff > 1.0) {
+				console.warn(`Bearing application failed. Expected: ${bearing.toFixed(2)}° (normalized: ${normalizedExpected.toFixed(2)}°), Got: ${actualBearing.toFixed(2)}° (normalized: ${normalizedActual.toFixed(2)}°). Diff: ${diff.toFixed(2)}°. Retrying...`);
+				forceMapBearing(map, bearing, retries - 1);
+			} else {
+				console.log(`Bearing successfully applied: ${actualBearing.toFixed(2)}° (expected: ${bearing.toFixed(2)}°, diff: ${diff.toFixed(2)}°)`);
+			}
+		}, 50);
+
+	} catch (error) {
+		console.error('Error applying bearing:', error);
+		setTimeout(() => forceMapBearing(map, bearing, retries - 1), 100);
+	}
 }
 
 // Updated ensureMap function with more robust bearing handling
 function ensureMap(centerLL, zoom, stylePref) {
-    const desiredTag = (stylePref === 'streets') ? 'streets' : 'aerial';
+	const desiredTag = (stylePref === 'streets') ? 'streets' : 'aerial';
 
-    // Capture pose once upstream; reuse it verbatim while entering 2D.
-    const pose = _handoffPose || {
-        center: { lat: centerLL.lat, lon: normalizeLon(centerLL.lon) },
-        zoom,
-        bearing: (() => {
-            const b = screenNorthBearingDegAt(centerLL);
-            return Number.isFinite(b) ? b : 0;
-        })()
-    };
+	// Capture pose once upstream; reuse it verbatim while entering 2D.
+	const pose = _handoffPose || {
+		center: { lat: centerLL.lat, lon: normalizeLon(centerLL.lon) },
+		zoom,
+		bearing: (() => {
+			const b = screenNorthBearingDegAt(centerLL);
+			return Number.isFinite(b) ? b : 0;
+		})()
+	};
 
-    // ---------------- Reuse existing map instance ----------------
-    if (map2d) {
-        const needStyleChange = map2d._styleTag !== desiredTag;
-        if (needStyleChange) {
-            // Switch style and, once loaded, assert the captured pose ONCE
-            if (desiredTag === 'streets') map2d.setStyle(STREETS_STYLE_URL);
-            else map2d.setStyle(AERIAL_STYLE_OBJ);
-            map2d._styleTag = desiredTag;
+	// ---------------- Reuse existing map instance ----------------
+	if (map2d) {
+		const needStyleChange = map2d._styleTag !== desiredTag;
+		if (needStyleChange) {
+			// Switch style and, once loaded, assert the captured pose ONCE
+			if (desiredTag === 'streets') map2d.setStyle(STREETS_STYLE_URL);
+			else map2d.setStyle(AERIAL_STYLE_OBJ);
+			map2d._styleTag = desiredTag;
 
-            map2d.once('styledata', () => {
-                if (_handoffPose) {
-                    try { 
-                        map2d.stop(); 
-                        map2d.jumpTo({
-                            center: [_handoffPose.center.lon, _handoffPose.center.lat],
-                            zoom: _handoffPose.zoom,
-                            bearing: _handoffPose.bearing,
-                            pitch: 0
-                        });
-                        // Force bearing application
-                        setTimeout(() => {
-                            forceMapBearing(map2d, _handoffPose.bearing);
-                        }, 100);
-                    } catch (e) { 
-                        console.error('Error in styledata handler:', e);
-                    }
-                }
-            });
-        }
+			map2d.once('styledata', () => {
+				if (_handoffPose) {
+					try {
+						map2d.stop();
+						map2d.jumpTo({
+							center: [_handoffPose.center.lon, _handoffPose.center.lat],
+							zoom: _handoffPose.zoom,
+							bearing: _handoffPose.bearing,
+							pitch: 0
+						});
+						// Force bearing application
+						setTimeout(() => {
+							forceMapBearing(map2d, _handoffPose.bearing);
+						}, 100);
+					} catch (e) {
+						console.error('Error in styledata handler:', e);
+					}
+				}
+			});
+		}
 
-        // Apply pose immediately when just entering 2D
-        if (_justEntered2D && _handoffPose) {
-            try { 
-                map2d.stop(); 
-                map2d.jumpTo({
-                    center: [_handoffPose.center.lon, _handoffPose.center.lat],
-                    zoom: _handoffPose.zoom,
-                    bearing: _handoffPose.bearing,
-                    pitch: 0
-                });
-                
-                // Force bearing application with multiple attempts
-                setTimeout(() => {
-                    forceMapBearing(map2d, _handoffPose.bearing);
-                }, 50);
-                
-                _justEntered2D = false;
-            } catch (e) { 
-                console.error('Error applying handoff pose:', e);
-            }
-        }
+		// Apply pose immediately when just entering 2D
+		if (_justEntered2D && _handoffPose) {
+			try {
+				map2d.stop();
+				map2d.jumpTo({
+					center: [_handoffPose.center.lon, _handoffPose.center.lat],
+					zoom: _handoffPose.zoom,
+					bearing: _handoffPose.bearing,
+					pitch: 0
+				});
 
-        bindExitHandlerOnce(map2d);
-        return map2d;
-    }
+				// Force bearing application with multiple attempts
+				setTimeout(() => {
+					forceMapBearing(map2d, _handoffPose.bearing);
+				}, 50);
 
-    // ---------------- Create map first time ----------------
-    map2d = new maplibregl.Map({
-        container: 'map2d',
-        style: (desiredTag === 'streets') ? STREETS_STYLE_URL : AERIAL_STYLE_OBJ,
-        center: [pose.center.lon, pose.center.lat],
-        zoom: pose.zoom,
-        bearing: pose.bearing,
-        pitch: 0,
-        attributionControl: true,
-        // allow rotation with pitch locked to 0
-        dragRotate: true,
-        pitchWithRotate: false
-    });
-    map2d._styleTag = desiredTag;
+				_justEntered2D = false;
+			} catch (e) {
+				console.error('Error applying handoff pose:', e);
+			}
+		}
 
-    // Controls / gestures
-    map2d.addControl(new maplibregl.NavigationControl(), 'top-right');
-    if (map2d.scrollZoom?.enable) map2d.scrollZoom.enable({ around: 'pointer' });
-    if (map2d.dragRotate?.enable) map2d.dragRotate.enable();
-    if (map2d.touchZoomRotate?.enableRotation) map2d.touchZoomRotate.enableRotation();
+		bindExitHandlerOnce(map2d);
+		return map2d;
+	}
 
-    // After style load, assert the captured pose ONCE with force bearing
-    map2d.once('styledata', () => {
-        if (_handoffPose) {
-            try { 
-                map2d.stop(); 
-                map2d.jumpTo({
-                    center: [_handoffPose.center.lon, _handoffPose.center.lat],
-                    zoom: _handoffPose.zoom,
-                    bearing: _handoffPose.bearing,
-                    pitch: 0
-                });
-                
-                // Force bearing application
-                setTimeout(() => {
-                    forceMapBearing(map2d, _handoffPose.bearing);
-                }, 100);
-                
-            } catch (e) { 
-                console.error('Error in initial styledata handler:', e);
-            }
-        }
-    });
+	// ---------------- Create map first time ----------------
+	map2d = new maplibregl.Map({
+		container: 'map2d',
+		style: (desiredTag === 'streets') ? STREETS_STYLE_URL : AERIAL_STYLE_OBJ,
+		center: [pose.center.lon, pose.center.lat],
+		zoom: pose.zoom,
+		bearing: pose.bearing,
+		pitch: 0,
+		attributionControl: true,
+		// allow rotation with pitch locked to 0
+		dragRotate: true,
+		pitchWithRotate: false
+	});
+	map2d._styleTag = desiredTag;
 
-    // Also force bearing after map is fully loaded
-    map2d.once('load', () => {
-        if (_handoffPose && Number.isFinite(_handoffPose.bearing)) {
-            setTimeout(() => {
-                forceMapBearing(map2d, _handoffPose.bearing);
-            }, 200);
-        }
-    });
+	// Controls / gestures
+	map2d.addControl(new maplibregl.NavigationControl(), 'top-right');
+	if (map2d.scrollZoom?.enable) map2d.scrollZoom.enable({ around: 'pointer' });
+	if (map2d.dragRotate?.enable) map2d.dragRotate.enable();
+	if (map2d.touchZoomRotate?.enableRotation) map2d.touchZoomRotate.enableRotation();
 
-    bindExitHandlerOnce(map2d);
-    return map2d;
+	// After style load, assert the captured pose ONCE with force bearing
+	map2d.once('styledata', () => {
+		if (_handoffPose) {
+			try {
+				map2d.stop();
+				map2d.jumpTo({
+					center: [_handoffPose.center.lon, _handoffPose.center.lat],
+					zoom: _handoffPose.zoom,
+					bearing: _handoffPose.bearing,
+					pitch: 0
+				});
 
-    // ---- inner helper: bind exit only once, snap back to 3D exactly ----
+				// Force bearing application
+				setTimeout(() => {
+					forceMapBearing(map2d, _handoffPose.bearing);
+				}, 100);
+
+			} catch (e) {
+				console.error('Error in initial styledata handler:', e);
+			}
+		}
+	});
+
+	// Also force bearing after map is fully loaded
+	map2d.once('load', () => {
+		if (_handoffPose && Number.isFinite(_handoffPose.bearing)) {
+			setTimeout(() => {
+				forceMapBearing(map2d, _handoffPose.bearing);
+			}, 200);
+		}
+	});
+
+	bindExitHandlerOnce(map2d);
+	return map2d;
+
+	// ---- inner helper: bind exit only once, snap back to 3D exactly ----
 	function bindExitHandlerOnce(map) {
 		if (map._exitBound) return;
 
 		const maybeExit2D = () => {
 			if (!map2dVisible) return;
 			const z = map.getZoom();
-			
+
 			console.log(`=== CHECKING 2D→3D EXIT ===`);
 			console.log(`Current zoom: ${z.toFixed(2)}, Exit threshold: ${HANDOFF_Z_OUT}`);
-			
+
 			if (z <= HANDOFF_Z_OUT) {
 				try { map.stop(); } catch (_) { }
 				const c = map.getCenter();
@@ -2193,12 +2192,12 @@ function ensureMap(centerLL, zoom, stylePref) {
 				console.log(`=== 2D→3D TRANSITION ===`);
 				console.log(`Exiting 2D at (${c.lat.toFixed(4)}, ${c.lng.toFixed(4)})`);
 				console.log(`2D map bearing: ${b.toFixed(2)}°`);
-				
+
 				// OPTION A: Use precise quaternion restoration (more accurate)
 				if (_handoffGlobeQuaternion) {
 					console.log(`Restoring exact globe quaternion instead of bearing`);
 					globe.quaternion.copy(_handoffGlobeQuaternion);
-					
+
 					// Center on the location without changing rotation
 					const vLocal = latLonToVector3(c.lat, normalizeLon(c.lng), 1);
 					const vWorld = vLocal.clone().applyQuaternion(globe.quaternion).normalize();
@@ -2220,10 +2219,10 @@ function ensureMap(centerLL, zoom, stylePref) {
 
 				console.log(`Hiding 2D map and returning to 3D`);
 				hideMap2D(true);
-				
+
 				// Verify the 3D bearing after transition
 				setTimeout(() => {
-					const finalBearing = screenNorthBearingDegAt({lat: c.lat, lon: normalizeLon(c.lng)});
+					const finalBearing = screenNorthBearingDegAt({ lat: c.lat, lon: normalizeLon(c.lng) });
 					console.log(`3D bearing after transition: ${finalBearing.toFixed(2)}° (should match 2D bearing)`);
 				}, 100);
 			} else {
@@ -2243,176 +2242,176 @@ function ensureMap(centerLL, zoom, stylePref) {
 
 
 function showMap2D(centerLL, zoom) {
-    const stylePref = defaultMapStyleFromEarthControls();
-    
-    // Ensure any ongoing navigation tweens are stopped before calculating bearing
-    if (navTween) {
-        navTween = null;
-    }
-    if (spinVel && spinVel.set) {
-        spinVel.set(0, 0, 0);
-    }
-    
-    // Update matrices to ensure accurate calculations
-    camera.updateMatrixWorld();
-    globe.updateMatrixWorld();
-    
-    console.log(`=== 3D→2D TRANSITION ===`);
-    console.log(`Transitioning to 2D at (${centerLL.lat.toFixed(4)}, ${centerLL.lon.toFixed(4)})`);
-    
-    // Detailed globe state analysis BEFORE calculating bearing
-    console.log(`=== GLOBE STATE ANALYSIS ===`);
-    console.log(`Globe quaternion: (${globe.quaternion.x.toFixed(3)}, ${globe.quaternion.y.toFixed(3)}, ${globe.quaternion.z.toFixed(3)}, ${globe.quaternion.w.toFixed(3)})`);
-    
-    // Test if globe appears upside down by checking where "North Pole" (0,1,0) ends up
-    const northPoleLocal = new THREE.Vector3(0, 1, 0); // North pole in local coords
-    const northPoleWorld = northPoleLocal.clone().applyQuaternion(globe.quaternion);
-    console.log(`North pole world position: (${northPoleWorld.x.toFixed(3)}, ${northPoleWorld.y.toFixed(3)}, ${northPoleWorld.z.toFixed(3)})`);
-    
-    if (northPoleWorld.y < -0.5) {
-        console.log(`→ GLOBE IS UPSIDE DOWN (North pole pointing down)`);
-    } else if (northPoleWorld.y > 0.5) {
-        console.log(`→ Globe is right-side up (North pole pointing up)`);
-    } else {
-        console.log(`→ Globe is sideways (North pole at y=${northPoleWorld.y.toFixed(3)})`);
-    }
-    
-    // Test specific location to see if it appears where expected
-    const testLat = 45, testLon = 0; // Should be in Europe/North Africa
-    const testLocal = latLonToVector3(testLat, testLon, 1);
-    const testWorld = testLocal.clone().applyQuaternion(globe.quaternion);
-    console.log(`Test point (45°N, 0°) world pos: (${testWorld.x.toFixed(3)}, ${testWorld.y.toFixed(3)}, ${testWorld.z.toFixed(3)})`);
-    
-    // Calculate bearing with detailed debugging
-    const bearing = screenNorthBearingDegAt(centerLL);
-    console.log(`Calculated bearing: ${bearing.toFixed(2)}°`);
-    
-    // More detailed camera analysis
-    const camUpWorld = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
-    console.log(`Camera up vector: (${camUpWorld.x.toFixed(3)}, ${camUpWorld.y.toFixed(3)}, ${camUpWorld.z.toFixed(3)})`);
-    console.log(`Camera quaternion: (${camera.quaternion.x.toFixed(3)}, ${camera.quaternion.y.toFixed(3)}, ${camera.quaternion.z.toFixed(3)}, ${camera.quaternion.w.toFixed(3)})`);
-    
-    // Manual bearing calculation to debug the function
-    console.log(`=== MANUAL BEARING CALCULATION DEBUG ===`);
-    const lat = THREE.MathUtils.degToRad(centerLL.lat);
-    const lon = THREE.MathUtils.degToRad(centerLL.lon);
-    const clat = Math.cos(lat), slat = Math.sin(lat);
-    const clon = Math.cos(lon), slon = Math.sin(lon);
-    
-    // Local coordinates (before globe rotation)
-    const pLocal = new THREE.Vector3(clat*clon, slat, clat*slon);
-    const northLocal = new THREE.Vector3(-slat*clon, clat, -slat*slon).normalize();
-    const eastLocal = new THREE.Vector3(-slon, 0, clon).normalize();
-    
-    // CORRECTED: Apply globe rotation to get world coordinates
-    const p = pLocal.clone().applyQuaternion(globe.quaternion);
-    const north = northLocal.clone().applyQuaternion(globe.quaternion);
-    const east = eastLocal.clone().applyQuaternion(globe.quaternion);
-    
-    console.log(`Surface point (world): (${p.x.toFixed(3)}, ${p.y.toFixed(3)}, ${p.z.toFixed(3)})`);
-    console.log(`Local north (world): (${north.x.toFixed(3)}, ${north.y.toFixed(3)}, ${north.z.toFixed(3)})`);
-    console.log(`Local east (world): (${east.x.toFixed(3)}, ${east.y.toFixed(3)}, ${east.z.toFixed(3)})`);
-    
-    // Project screen-up into tangent plane
-    const upTangent = camUpWorld.clone().sub(p.clone().multiplyScalar(camUpWorld.dot(p)));
-    console.log(`Projected screen-up: (${upTangent.x.toFixed(3)}, ${upTangent.y.toFixed(3)}, ${upTangent.z.toFixed(3)})`);
-    console.log(`Projection length: ${upTangent.length().toFixed(3)}`);
-    
-    if (upTangent.lengthSq() > 1e-12) {
-        upTangent.normalize();
-        const x = upTangent.dot(east);   // CORRECTED: use world-space east
-        const y = upTangent.dot(north);  // CORRECTED: use world-space north
-        console.log(`East component: ${x.toFixed(3)}, North component: ${y.toFixed(3)}`);
-        const manualBearing = THREE.MathUtils.radToDeg(Math.atan2(x, y));
-        let normalizedManual = manualBearing;
-        if (normalizedManual < 0) normalizedManual += 360;
-        console.log(`Manual bearing calc: ${manualBearing.toFixed(2)}° (normalized: ${normalizedManual.toFixed(2)}°)`);
-    }
-    
-    // Test what the current camera "up" vector looks like
-    const testBearing = bearing;
-    if (testBearing < 45 || testBearing > 315) {
-        console.log(`→ Screen "up" points roughly NORTH (globe appears normal)`);
-    } else if (testBearing > 135 && testBearing < 225) {
-        console.log(`→ Screen "up" points roughly SOUTH (globe appears upside down)`);
-    } else if (testBearing > 45 && testBearing < 135) {
-        console.log(`→ Screen "up" points roughly EAST (globe rotated ~90° clockwise)`);
-    } else {
-        console.log(`→ Screen "up" points roughly WEST (globe rotated ~90° counter-clockwise)`);
-    }
+	const stylePref = defaultMapStyleFromEarthControls();
 
-    _handoffPose = {
-        center: { lat: centerLL.lat, lon: normalizeLon(centerLL.lon) },
-        zoom,
-        bearing
-    };
+	// Ensure any ongoing navigation tweens are stopped before calculating bearing
+	if (navTween) {
+		navTween = null;
+	}
+	if (spinVel && spinVel.set) {
+		spinVel.set(0, 0, 0);
+	}
 
- 	_handoffGlobeQuaternion = globe.quaternion.clone();	
-    _justEntered2D = true;
-    ensureMap(centerLL, zoom, stylePref);
+	// Update matrices to ensure accurate calculations
+	camera.updateMatrixWorld();
+	globe.updateMatrixWorld();
 
-    // Show the overlay and route input to MapLibre
-    mapDiv.classList.add('visible');
-    map2dVisible = true;
-    renderer.domElement.style.pointerEvents = 'none';
-    navTween = null; 
-    if (spinVel && spinVel.set) spinVel.set(0, 0, 0);
-    _preMapCamDist = cameraDistanceToGlobeCenter();
+	console.log(`=== 3D→2D TRANSITION ===`);
+	console.log(`Transitioning to 2D at (${centerLL.lat.toFixed(4)}, ${centerLL.lon.toFixed(4)})`);
 
-    // Make sure the map lays out and adopts the captured pose
-    if (map2d) {
-        try { map2d.stop(); } catch (_) { }
-        map2d.resize();
-        
-        // Add debug logging here too
-        console.log(`Setting map bearing to: ${_handoffPose.bearing.toFixed(2)}°`);
-        
-        // Immediate assert (covers already-loaded style)
-        map2d.jumpTo({
-            center: [_handoffPose.center.lon, _handoffPose.center.lat],
-            zoom: _handoffPose.zoom,
-            bearing: _handoffPose.bearing,
-            pitch: 0
-        });
-        
-        // Verify what bearing was actually set
-        setTimeout(() => {
-            const actualBearing = map2d.getBearing();
-            console.log(`Map bearing after jumpTo: ${actualBearing.toFixed(2)}°`);
-            
-            // Check if the visual result matches expectation
-            if (Math.abs(actualBearing) < 5) {
-                console.log(`→ 2D map should appear NORTH UP`);
-            } else if (Math.abs(Math.abs(actualBearing) - 180) < 5) {
-                console.log(`→ 2D map should appear SOUTH UP (upside down)`);
-            } else {
-                console.log(`→ 2D map rotated ${actualBearing.toFixed(1)}° from north-up`);
-            }
-        }, 100);
-        
-        // Assert again right after any style reload finishes
-        map2d.once('styledata', () => {
-            const p = _handoffPose;
-            if (p) {
-                console.log(`Style loaded, re-setting bearing to: ${p.bearing.toFixed(2)}°`);
-                map2d.jumpTo({
-                    center: [p.center.lon, p.center.lat],
-                    zoom: p.zoom,
-                    bearing: p.bearing,
-                    pitch: 0
-                });
-                
-                setTimeout(() => {
-                    const actualBearing = map2d.getBearing();
-                    console.log(`Map bearing after style reload: ${actualBearing.toFixed(2)}°`);
-                }, 100);
-            }
-        });
-    }
+	// Detailed globe state analysis BEFORE calculating bearing
+	console.log(`=== GLOBE STATE ANALYSIS ===`);
+	console.log(`Globe quaternion: (${globe.quaternion.x.toFixed(3)}, ${globe.quaternion.y.toFixed(3)}, ${globe.quaternion.z.toFixed(3)}, ${globe.quaternion.w.toFixed(3)})`);
 
-    // Optional: hide 3D HUD bits while 2D is up
-    if (calloutEl) calloutEl.style.display = 'none';
-    if (markersRoot) markersRoot.style.display = 'none';
+	// Test if globe appears upside down by checking where "North Pole" (0,1,0) ends up
+	const northPoleLocal = new THREE.Vector3(0, 1, 0); // North pole in local coords
+	const northPoleWorld = northPoleLocal.clone().applyQuaternion(globe.quaternion);
+	console.log(`North pole world position: (${northPoleWorld.x.toFixed(3)}, ${northPoleWorld.y.toFixed(3)}, ${northPoleWorld.z.toFixed(3)})`);
+
+	if (northPoleWorld.y < -0.5) {
+		console.log(`→ GLOBE IS UPSIDE DOWN (North pole pointing down)`);
+	} else if (northPoleWorld.y > 0.5) {
+		console.log(`→ Globe is right-side up (North pole pointing up)`);
+	} else {
+		console.log(`→ Globe is sideways (North pole at y=${northPoleWorld.y.toFixed(3)})`);
+	}
+
+	// Test specific location to see if it appears where expected
+	const testLat = 45, testLon = 0; // Should be in Europe/North Africa
+	const testLocal = latLonToVector3(testLat, testLon, 1);
+	const testWorld = testLocal.clone().applyQuaternion(globe.quaternion);
+	console.log(`Test point (45°N, 0°) world pos: (${testWorld.x.toFixed(3)}, ${testWorld.y.toFixed(3)}, ${testWorld.z.toFixed(3)})`);
+
+	// Calculate bearing with detailed debugging
+	const bearing = screenNorthBearingDegAt(centerLL);
+	console.log(`Calculated bearing: ${bearing.toFixed(2)}°`);
+
+	// More detailed camera analysis
+	const camUpWorld = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+	console.log(`Camera up vector: (${camUpWorld.x.toFixed(3)}, ${camUpWorld.y.toFixed(3)}, ${camUpWorld.z.toFixed(3)})`);
+	console.log(`Camera quaternion: (${camera.quaternion.x.toFixed(3)}, ${camera.quaternion.y.toFixed(3)}, ${camera.quaternion.z.toFixed(3)}, ${camera.quaternion.w.toFixed(3)})`);
+
+	// Manual bearing calculation to debug the function
+	console.log(`=== MANUAL BEARING CALCULATION DEBUG ===`);
+	const lat = THREE.MathUtils.degToRad(centerLL.lat);
+	const lon = THREE.MathUtils.degToRad(centerLL.lon);
+	const clat = Math.cos(lat), slat = Math.sin(lat);
+	const clon = Math.cos(lon), slon = Math.sin(lon);
+
+	// Local coordinates (before globe rotation)
+	const pLocal = new THREE.Vector3(clat * clon, slat, clat * slon);
+	const northLocal = new THREE.Vector3(-slat * clon, clat, -slat * slon).normalize();
+	const eastLocal = new THREE.Vector3(-slon, 0, clon).normalize();
+
+	// CORRECTED: Apply globe rotation to get world coordinates
+	const p = pLocal.clone().applyQuaternion(globe.quaternion);
+	const north = northLocal.clone().applyQuaternion(globe.quaternion);
+	const east = eastLocal.clone().applyQuaternion(globe.quaternion);
+
+	console.log(`Surface point (world): (${p.x.toFixed(3)}, ${p.y.toFixed(3)}, ${p.z.toFixed(3)})`);
+	console.log(`Local north (world): (${north.x.toFixed(3)}, ${north.y.toFixed(3)}, ${north.z.toFixed(3)})`);
+	console.log(`Local east (world): (${east.x.toFixed(3)}, ${east.y.toFixed(3)}, ${east.z.toFixed(3)})`);
+
+	// Project screen-up into tangent plane
+	const upTangent = camUpWorld.clone().sub(p.clone().multiplyScalar(camUpWorld.dot(p)));
+	console.log(`Projected screen-up: (${upTangent.x.toFixed(3)}, ${upTangent.y.toFixed(3)}, ${upTangent.z.toFixed(3)})`);
+	console.log(`Projection length: ${upTangent.length().toFixed(3)}`);
+
+	if (upTangent.lengthSq() > 1e-12) {
+		upTangent.normalize();
+		const x = upTangent.dot(east);   // CORRECTED: use world-space east
+		const y = upTangent.dot(north);  // CORRECTED: use world-space north
+		console.log(`East component: ${x.toFixed(3)}, North component: ${y.toFixed(3)}`);
+		const manualBearing = THREE.MathUtils.radToDeg(Math.atan2(x, y));
+		let normalizedManual = manualBearing;
+		if (normalizedManual < 0) normalizedManual += 360;
+		console.log(`Manual bearing calc: ${manualBearing.toFixed(2)}° (normalized: ${normalizedManual.toFixed(2)}°)`);
+	}
+
+	// Test what the current camera "up" vector looks like
+	const testBearing = bearing;
+	if (testBearing < 45 || testBearing > 315) {
+		console.log(`→ Screen "up" points roughly NORTH (globe appears normal)`);
+	} else if (testBearing > 135 && testBearing < 225) {
+		console.log(`→ Screen "up" points roughly SOUTH (globe appears upside down)`);
+	} else if (testBearing > 45 && testBearing < 135) {
+		console.log(`→ Screen "up" points roughly EAST (globe rotated ~90° clockwise)`);
+	} else {
+		console.log(`→ Screen "up" points roughly WEST (globe rotated ~90° counter-clockwise)`);
+	}
+
+	_handoffPose = {
+		center: { lat: centerLL.lat, lon: normalizeLon(centerLL.lon) },
+		zoom,
+		bearing
+	};
+
+	_handoffGlobeQuaternion = globe.quaternion.clone();
+	_justEntered2D = true;
+	ensureMap(centerLL, zoom, stylePref);
+
+	// Show the overlay and route input to MapLibre
+	mapDiv.classList.add('visible');
+	map2dVisible = true;
+	renderer.domElement.style.pointerEvents = 'none';
+	navTween = null;
+	if (spinVel && spinVel.set) spinVel.set(0, 0, 0);
+	_preMapCamDist = cameraDistanceToGlobeCenter();
+
+	// Make sure the map lays out and adopts the captured pose
+	if (map2d) {
+		try { map2d.stop(); } catch (_) { }
+		map2d.resize();
+
+		// Add debug logging here too
+		console.log(`Setting map bearing to: ${_handoffPose.bearing.toFixed(2)}°`);
+
+		// Immediate assert (covers already-loaded style)
+		map2d.jumpTo({
+			center: [_handoffPose.center.lon, _handoffPose.center.lat],
+			zoom: _handoffPose.zoom,
+			bearing: _handoffPose.bearing,
+			pitch: 0
+		});
+
+		// Verify what bearing was actually set
+		setTimeout(() => {
+			const actualBearing = map2d.getBearing();
+			console.log(`Map bearing after jumpTo: ${actualBearing.toFixed(2)}°`);
+
+			// Check if the visual result matches expectation
+			if (Math.abs(actualBearing) < 5) {
+				console.log(`→ 2D map should appear NORTH UP`);
+			} else if (Math.abs(Math.abs(actualBearing) - 180) < 5) {
+				console.log(`→ 2D map should appear SOUTH UP (upside down)`);
+			} else {
+				console.log(`→ 2D map rotated ${actualBearing.toFixed(1)}° from north-up`);
+			}
+		}, 100);
+
+		// Assert again right after any style reload finishes
+		map2d.once('styledata', () => {
+			const p = _handoffPose;
+			if (p) {
+				console.log(`Style loaded, re-setting bearing to: ${p.bearing.toFixed(2)}°`);
+				map2d.jumpTo({
+					center: [p.center.lon, p.center.lat],
+					zoom: p.zoom,
+					bearing: p.bearing,
+					pitch: 0
+				});
+
+				setTimeout(() => {
+					const actualBearing = map2d.getBearing();
+					console.log(`Map bearing after style reload: ${actualBearing.toFixed(2)}°`);
+				}, 100);
+			}
+		});
+	}
+
+	// Optional: hide 3D HUD bits while 2D is up
+	if (calloutEl) calloutEl.style.display = 'none';
+	if (markersRoot) markersRoot.style.display = 'none';
 }
 
 
