@@ -280,7 +280,65 @@ function buildMiniGlobeTelemetry() {
   };
 }
 
+const sunAutoCfg = {
+  enabled: true,
+  lastSec: -1
+};
 
+// SOLAR HELPERS
+// -------------
+function dayOfYearUTC(d) {
+  const start = new Date(Date.UTC(d.getUTCFullYear(), 0, 0));
+  return Math.floor((d - start) / 86400000);
+}
+function declinationRad(N) {
+  return (23.44 * Math.PI / 180) * Math.sin((2 * Math.PI / 365) * (284 + N));
+}
+function equationOfTimeMin(N) {
+  const B = 2 * Math.PI * (N - 81) / 364;
+  return 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B);
+}
+// If you configured sunset.js to 'east' (default), this matches:
+function lonEastDegrees(lonApp) {
+  return ((lonApp + 180) % 360 + 360) % 360 - 180;
+}
+
+function updateSunFromSolarTimeOncePerSecond() {
+  if (!SunLighting.enabled) return;
+
+  const now = new Date();
+  const sec = Math.floor(now.getTime() / 200);
+  if (sec === SunLighting.lastSec) return;
+  SunLighting.lastSec = sec;
+
+  const centerLL = currentCenterLatLon();      // { lat, lon }
+  const N   = dayOfYearUTC(now);
+  const dec = declinationRad(N);
+  const eot = equationOfTimeMin(N);
+  const lonE = lonEastDegrees(centerLL.lon);
+
+  // Local Solar Time at center (hours)
+  const lstHours = (now.getUTCHours() + now.getUTCMinutes()/60 + now.getUTCSeconds()/3600)
+                 + (lonE / 15) + (eot / 60);
+
+  // Hour angle H (radians)
+  const H = (Math.PI / 12) * (lstHours - 12);
+
+  // Sun direction in your globe axes: x=0° lon, y=north, z=+90°E
+  const cosd = Math.cos(dec), sind = Math.sin(dec);
+  const sunDir = new THREE.Vector3(
+    cosd * Math.cos(H),
+    sind,
+    cosd * Math.sin(H)
+  ).normalize();
+
+  dirLight.position.copy(sunDir).multiplyScalar(SunLighting.radius);
+  dirLight.visible = true;
+  dirLight.target?.position.set(0, 0, 0);
+  dirLight.target?.updateMatrixWorld();
+
+  atmoUniforms.sunDirW.value.copy(dirLight.position).normalize();
+}
 
 
 
@@ -1137,6 +1195,14 @@ const calloutEl = document.getElementById('callout');
 const calloutSvg = document.getElementById('callout-svg');
 
 
+const sunTimeAutoEl = document.getElementById('sunTimeAuto');
+if (sunTimeAutoEl) {
+  sunTimeAutoEl.checked = true;
+  sunTimeAutoEl.addEventListener('change', () => {
+    sunAutoCfg.enabled = !!sunTimeAutoEl.checked;
+  });
+}
+
 
 // Borders color UI only when borders are on
 chkBorders.addEventListener('change', async (e) => {
@@ -1236,17 +1302,49 @@ function updateSunFromTime(tHours) {
 	dirLight.position.set(Math.cos(lon) * radius, 0, Math.sin(lon) * radius);
 	sunReadout.textContent = `${tHours.toFixed(1)} h · lon ${Math.round(lonDeg)}°`;
 }
-chkLighting.addEventListener('change', (e) => {
-	const lit = e.target.checked;
-	earthActiveMat = lit ? earthMatLit : earthMatUnlit;
-	earth.material = earthActiveMat;
-	dirLight.intensity = lit ? 1.0 : 0.0;
-	ambLight.intensity = 1.0;
-	if (modeSel.value === 'none') applyGlobeColorAlpha();
-});
 
-updateSunFromTime(parseFloat(sunTimeInput.value));
-sunTimeInput.addEventListener('input', () => { updateSunFromTime(parseFloat(sunTimeInput.value)); applySkyBrightness(); });
+// lighting state
+const SunLighting = {
+  enabled: true,
+  lastTickMs: 0,
+  intervalMs: 200,     
+  fallbackDir: new THREE.Vector3(0.6, 0.5, 0.6).normalize(),
+  radius: 25
+};
+
+
+const sunLightingEnabledEl = document.getElementById('sunLightingEnabled');
+function applySunLightingEnabled() {
+  SunLighting.enabled = !!sunLightingEnabledEl.checked;
+
+  if (SunLighting.enabled) {
+    // respond to lights
+    if (earth.material !== earthMatLit) earth.material = earthMatLit;
+
+    // turn the sun ON and compute its pose immediately
+    dirLight.intensity = 1.2;
+    dirLight.visible   = true;
+    SunLighting.lastSec = -1;
+    updateSunFromSolarTimeOncePerSecond(); // compute once right now
+  } else {
+    // unlit look
+    if (earth.material !== earthMatUnlit) earth.material = earthMatUnlit;
+
+    dirLight.position.copy(SunLighting.fallbackDir).multiplyScalar(SunLighting.radius);
+    dirLight.intensity = 0.0;
+    dirLight.visible   = false;
+    dirLight.target?.position.set(0, 0, 0);
+    dirLight.target?.updateMatrixWorld();
+  }
+}
+
+if (sunLightingEnabledEl) {
+  sunLightingEnabledEl.addEventListener('change', applySunLightingEnabled);
+  applySunLightingEnabled(); // set initial state
+}
+
+
+
 
 // Stars
 chkStars.addEventListener('change', async (e) => {
@@ -1766,6 +1864,8 @@ let last = performance.now();
 
 	applySkyBrightness();
 	updateViewReadout();
+
+	updateSunFromSolarTimeOncePerSecond();	
 
 	renderer.render(scene, camera);
 })(last);
