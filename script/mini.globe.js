@@ -33,7 +33,7 @@ export class MiniGlobeOverlay {
         this.canvas.width = this.size;
         this.canvas.height = this.size;
         this.canvas.style.position = 'fixed';
-        this.canvas.style.bottom = '20px';
+        this.canvas.style.bottom = '30px';
         this.canvas.style.left = '20px';
         this.canvas.style.zIndex = '10000';
         this.canvas.style.borderRadius = '8px';
@@ -192,8 +192,8 @@ export class MiniGlobeOverlay {
         northLabel.style.position = 'fixed';
         northLabel.style.top = '0px';
         northLabel.style.color = 'white';
-        northLabel.style.fontSize = '14px';
-        northLabel.style.fontFamily = 'Arial, sans-serif';
+        northLabel.style.fontSize = '12px';
+        northLabel.style.fontFamily = 'Roboto, Arial, sans-serif';
         northLabel.style.fontWeight = 'bold';
         northLabel.style.textAlign = 'center';
         northLabel.style.width = '12px';
@@ -304,14 +304,14 @@ export class MiniGlobeOverlay {
                 : '—';
 
             const parts = [
-                `STATUS ${telemetry.status ?? 'Online'}`,
-                `SPEED ${speedStr}`,
                 `ALTITUDE ${altitudeStr}`,
+                `SPEED ${speedStr}`,
                 `LATITUDE ${Number.isFinite(lat) ? lat.toFixed(2) : '—'}`,
                 `LONGITUDE ${Number.isFinite(lon) ? lon.toFixed(2) : '—'}`,
                 `BEARING ${bearingStr}`,
                 `SUNSET ${telemetry.sunset ?? '—'}`,
-                `TIME ${telemetry.timeUTC ?? '—'}`,
+                `UTC TIME ${telemetry.timeUTC ?? '—'}`,
+                `SOLAR TIME ${telemetry.timeLocal ?? '—'}`,
                 `LOCATION ${telemetry.location ?? '-'}`
             ];
 
@@ -345,14 +345,14 @@ export class MiniGlobeOverlay {
                 : '—';
 
             const parts = [
-                `STATUS ${telemetry.status ?? 'Online'}`,
-                `SPEED ${speedStr}`,
                 `ALTITUDE ${altitudeStr}`,
+                `SPEED ${speedStr}`,
                 `LATITUDE ${Number.isFinite(lat) ? lat.toFixed(2) : '—'}`,
                 `LONGITUDE ${Number.isFinite(lon) ? lon.toFixed(2) : '—'}`,
                 `BEARING ${bearingStr}`,
                 `SUNSET ${telemetry.sunset ?? '—'}`,
-                `TIME ${telemetry.timeUTC ?? '—'}`,
+                `UTC TIME ${telemetry.timeUTC ?? '—'}`,
+                `SOLAR TIME ${telemetry.timeLocal ?? '—'}`,
                 `LOCATION ${telemetry.location ?? 'N/A'}`
             ];
 

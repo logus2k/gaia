@@ -54,6 +54,31 @@ const AERIAL_STYLE_OBJ = {
 	layers: [{ id: 'esri-satellite-layer', type: 'raster', source: 'esri-satellite' }]
 };
 
+// --- Mini-globe telemetry cache / throttles ---
+const _teleCache = {
+  // TIME (recompute once per second)
+  lastTimeSec: -1,
+  timeUTC: '—',
+  timeLocal: '—',
+
+  // SUNSET (recompute at most every 60s, or when LL moves enough)
+  lastSunsetMs: 0,
+  lastSunsetLL: { lat: NaN, lon: NaN },
+  sunset: '—',
+
+  // LOCATION (country lookup) – recompute when LL moves enough or every few seconds
+  lastLocMs: 0,
+  lastLocLL: { lat: NaN, lon: NaN },
+  location: 'N/A',
+};
+
+// thresholds
+const SUNSET_MIN_INTERVAL_MS   = 60000; // 60s
+const LOCATION_MIN_INTERVAL_MS = 3000;  // 3s
+const LL_EPS_SUNSET = 0.5;   // deg change needed to refresh sunset sooner
+const LL_EPS_LOC    = 0.25;  // deg change needed to refresh location
+
+
 // ---------- Utils ----------
 function clamp01(x) { return Math.max(0, Math.min(1, x)); }
 function hexFromInt(i) { return '#' + i.toString(16).padStart(6, '0'); }
@@ -180,86 +205,81 @@ function tryEnter2D() {
 
 
 function buildMiniGlobeTelemetry() {
-	// --- Helpers (scoped) ---
-	function dayOfYearUTC(d) {
-		const start = new Date(Date.UTC(d.getUTCFullYear(), 0, 0));
-		return Math.floor((d - start) / 86400000); // 1..366
-	}
-	function declinationDeg(N) {
-		// Solar declination (good UI approximation)
-		return 23.44 * Math.sin((2 * Math.PI / 365) * (284 + N));
-	}
-	function equationOfTimeMin(N) {
-		// Equation of Time (minutes)
-		const B = 2 * Math.PI * (N - 81) / 364;
-		return 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B);
-	}
-	function computeSunsetUTC(centerLL, δdeg, eotMin) {
-		// Returns "HH:MM:SS UTC" or "—" (polar day/night)
-		const φ = centerLL.lat * Math.PI / 180;
-		const δ = δdeg * Math.PI / 180;
-		const zenith = 90.833 * Math.PI / 180; // std refraction + solar radius
+  // ----- FAST: per-frame values -----
+  const centerLL = currentCenterLatLon(); // { lat, lon }
+  const in2D = !!(map2dVisible && typeof map2d?.getBearing === 'function');
+  const bearingDeg = in2D ? map2d.getBearing() : screenNorthBearingDegAt(centerLL);
 
-		const cosH0 = (Math.cos(zenith) - Math.sin(φ) * Math.sin(δ)) / (Math.cos(φ) * Math.cos(δ));
-		if (cosH0 < -1 || cosH0 > 1) return '—'; // sun never sets/rises
+  const v_kms = Math.abs(autorotateSpeed) * SETTINGS.earthRadiusKm;
+  const v_kmh = v_kms * 3600;
 
-		const H0deg = Math.acos(cosH0) * 180 / Math.PI; // hour angle at sunset
-		// Local solar noon (hours)
-		const solarNoon = 12 + (eotMin / 60) - (centerLL.lon / 15);
-		// Sunset in local solar time (hours)
-		const sunsetLST = solarNoon + (H0deg / 15);
-		// Convert to UTC hours
-		const utcHours = sunsetLST + (centerLL.lon / 15) - (eotMin / 60);
+  const dist = cameraDistanceToGlobeCenter();
+  const surface = R * ATMO.scale;
+  const altitudeKm = Math.max(0, (dist - surface) * SETTINGS.earthRadiusKm);
 
-		const h = ((utcHours % 24) + 24) % 24;
-		const hh = String(Math.floor(h)).padStart(2, '0');
-		const mm = String(Math.floor((h % 1) * 60)).padStart(2, '0');
-		const ss = String(Math.round((((h % 1) * 60) % 1) * 60)).padStart(2, '0');
-		return `${hh}:${mm}:${ss} UTC`;
-	}
+  // ----- SLOW: time (once per second) -----
+  const now = new Date();
+  const nowSec = Math.floor(now.getTime() / 1000);
+  if (nowSec !== _teleCache.lastTimeSec) {
+    _teleCache.lastTimeSec = nowSec;
 
-	// --- Existing telemetry pieces ---
-	const centerLL = currentCenterLatLon(); // {lat, lon}
-	const in2D = !!(map2dVisible && typeof map2d?.getBearing === 'function');
+    // UTC clock
+    _teleCache.timeUTC =
+      `${String(now.getUTCHours()).padStart(2,'0')}:` +
+      `${String(now.getUTCMinutes()).padStart(2,'0')}:` +
+      `${String(now.getUTCSeconds()).padStart(2,'0')}`;
 
-	const bearingDeg = in2D
-		? map2d.getBearing()
-		: screenNorthBearingDegAt(centerLL);
+    // Local clock (approx civil time derived from longitude; no DST DB)
+    const lonEast = SunCalcUTC._mapLonToEast(centerLL.lon);
+    const offsetMin = Math.round(((lonEast / 15) * 60) / 15) * 15; // nearest 15 min
+    const localMs = now.getTime() + offsetMin * 60000;
+    const t = new Date(localMs);
+    _teleCache.timeLocal =
+      `${String(t.getUTCHours()).padStart(2,'0')}:` +
+      `${String(t.getUTCMinutes()).padStart(2,'0')}:` +
+      `${String(t.getUTCSeconds()).padStart(2,'0')}`;
+  }
 
-	const country = countryAtLonLat(centerLL.lon, centerLL.lat);
-	const location = country?.name || 'n/a';
+  // ----- SLOW: location/country (when LL moves enough or every few seconds) -----
+  const locDtMs = now - _teleCache.lastLocMs;
+  const dLatLoc = Math.abs(centerLL.lat - _teleCache.lastLocLL.lat);
+  const dLonLoc = Math.abs(centerLL.lon - _teleCache.lastLocLL.lon);
+  if (locDtMs > LOCATION_MIN_INTERVAL_MS || dLatLoc > LL_EPS_LOC || dLonLoc > LL_EPS_LOC) {
+    _teleCache.lastLocMs = now;
+    _teleCache.lastLocLL = { ...centerLL };
+    const country = countryAtLonLat(centerLL.lon, centerLL.lat);
+    _teleCache.location = country?.name || 'N/A';
+  }
 
-	const v_kms = Math.abs(autorotateSpeed) * SETTINGS.earthRadiusKm;
-	const v_kmh = v_kms * 3600;
+  // ----- SLOW: sunset (local display to match the local clock) -----
+  const sunDtMs = now - _teleCache.lastSunsetMs;
+  const dLatSun = Math.abs(centerLL.lat - _teleCache.lastSunsetLL.lat);
+  const dLonSun = Math.abs(centerLL.lon - _teleCache.lastSunsetLL.lon);
+  if (sunDtMs > SUNSET_MIN_INTERVAL_MS || dLatSun > LL_EPS_SUNSET || dLonSun > LL_EPS_SUNSET) {
+    _teleCache.lastSunsetMs = now;
+    _teleCache.lastSunsetLL = { ...centerLL };
 
-	const dist = cameraDistanceToGlobeCenter();     // scene radii
-	const surface = R * ATMO.scale;                 // scene radii
-	const altitudeKm = Math.max(0, (dist - surface) * SETTINGS.earthRadiusKm);
+	// const sunsetUTC = SunCalcUTC.computeSunsetUTC(centerLL, now);
+    _teleCache.sunset = SunCalcUTC.computeSunsetSolar(centerLL, now);
+  }
 
-	const d = new Date(); // current UTC date/time
-	const timeUTC = `${String(d.getUTCHours()).padStart(2, '0')}:` +
-		`${String(d.getUTCMinutes()).padStart(2, '0')}:` +
-		`${String(d.getUTCSeconds()).padStart(2, '0')} UTC`;
-
-	// --- SUNSET from current UTC date + center lat/lon ---
-	const N = dayOfYearUTC(d);
-	const decl = declinationDeg(N);
-	const eot = equationOfTimeMin(N);
-	const sunsetUTC = computeSunsetUTC(centerLL, decl, eot);
-
-	return {
-		mode: in2D ? '2d' : '3d',
-		centerLL,                   // {lat, lon}
-		bearingDeg,                 // number
-		mapBearingDeg: in2D ? bearingDeg : undefined,
-		location,                   // string
-		speedKmh: v_kmh,            // number
-		altitudeKm,                 // number
-		timeUTC,                    // "HH:MM:SS.mmm UTC"
-		sunset: sunsetUTC,          // "HH:MM:SS UTC" or "—"
-		status: 'Online'
-	};
+  return {
+    mode: in2D ? '2d' : '3d',
+    centerLL,                           // { lat, lon }
+    bearingDeg,                         // number
+    mapBearingDeg: in2D ? bearingDeg : undefined,
+    location: _teleCache.location,      // throttled
+    speedKmh: v_kmh,
+    altitudeKm,
+    timeUTC: _teleCache.timeUTC,        // "HH:MM:SS UTC"
+    timeLocal: _teleCache.timeLocal,    // "HH:MM:SS LT"
+    sunset: _teleCache.sunset,          // "HH:MM:SS LT" (local, zone-style)
+    status: 'Online'
+  };
 }
+
+
+
 
 
 
