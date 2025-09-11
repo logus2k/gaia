@@ -34,7 +34,7 @@ export class MiniGlobeOverlay {
         this.canvas.height = this.size;
         this.canvas.style.position = 'fixed';
         this.canvas.style.bottom = '20px';
-        this.canvas.style.right = '20px';
+        this.canvas.style.left = '20px';
         this.canvas.style.zIndex = '10000';
         this.canvas.style.borderRadius = '8px';
         this.canvas.style.background = 'transparent';
@@ -165,15 +165,15 @@ export class MiniGlobeOverlay {
     addLabel() {
         const label = document.createElement('div');
         label.style.position = 'fixed';
-        label.style.bottom = '10px';
-        label.style.right = '20px';
+        label.style.bottom = '15px';
+        label.style.left = '20px';
         label.style.color = '#00ff41';
         label.style.fontSize = '11px';
         label.style.fontFamily = 'Monaco, "Lucida Console", "Courier New", monospace';
-        label.style.textAlign = 'right';
+        label.style.textAlign = 'left';
         label.style.width = '1500px';
         label.style.background = 'transparent';
-        label.style.padding = '6px';
+        label.style.padding = '0px';
         label.style.borderRadius = '4px';
         label.style.zIndex = '10000';
         label.style.textShadow = '0 0 4px #00ff41';
@@ -304,15 +304,15 @@ export class MiniGlobeOverlay {
                 : '—';
 
             const parts = [
-                `LOCATION ${telemetry.location ?? '-'}`,
-                `TIME ${telemetry.timeUTC ?? '—'}`,
+                `STATUS ${telemetry.status ?? 'Online'}`,
                 `SPEED ${speedStr}`,
                 `ALTITUDE ${altitudeStr}`,
                 `LATITUDE ${Number.isFinite(lat) ? lat.toFixed(2) : '—'}`,
                 `LONGITUDE ${Number.isFinite(lon) ? lon.toFixed(2) : '—'}`,
-                `SUNSET ${telemetry.sunset ?? '—'}`,
                 `BEARING ${bearingStr}`,
-                `STATUS ${telemetry.status ?? 'Online'}`
+                `SUNSET ${telemetry.sunset ?? '—'}`,
+                `TIME ${telemetry.timeUTC ?? '—'}`,
+                `LOCATION ${telemetry.location ?? '-'}`
             ];
 
             label.textContent = parts.join('\u00A0\u00A0\u00A0');
@@ -345,15 +345,15 @@ export class MiniGlobeOverlay {
                 : '—';
 
             const parts = [
-                `LOCATION ${telemetry.location ?? 'N/A'}`,
-                `TIME ${telemetry.timeUTC ?? '—'}`,
+                `STATUS ${telemetry.status ?? 'Online'}`,
                 `SPEED ${speedStr}`,
                 `ALTITUDE ${altitudeStr}`,
                 `LATITUDE ${Number.isFinite(lat) ? lat.toFixed(2) : '—'}`,
                 `LONGITUDE ${Number.isFinite(lon) ? lon.toFixed(2) : '—'}`,
                 `BEARING ${bearingStr}`,
                 `SUNSET ${telemetry.sunset ?? '—'}`,
-                `STATUS ${telemetry.status ?? 'Online'}`
+                `TIME ${telemetry.timeUTC ?? '—'}`,
+                `LOCATION ${telemetry.location ?? 'N/A'}`
             ];
 
             label.textContent = parts.join('\u00A0\u00A0\u00A0');
