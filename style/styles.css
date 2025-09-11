@@ -236,7 +236,7 @@ input[type="search"] {
   position: fixed;
   inset: 0;
   display: none;
-  z-index: 50; /* above HUD/canvas */
+  z-index: 0; /* above HUD/canvas */
 }
 #map2d.visible {
   display: block;
