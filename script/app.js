@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "../library/OrbitControls.js";
+import { SunCalcUTC } from "../script/sunset.js";
 import { MiniGlobeOverlay } from "../script/mini.globe.js";
 
 
@@ -175,6 +176,90 @@ function tryEnter2D() {
 	const zEst = (estimateMapZoom.length >= 1) ? estimateMapZoom(ll) : estimateMapZoom();
 
 	if (zEst >= HANDOFF_Z_IN) showMap2D(ll, zEst);
+}
+
+
+function buildMiniGlobeTelemetry() {
+  // --- Helpers (scoped) ---
+  function dayOfYearUTC(d) {
+    const start = new Date(Date.UTC(d.getUTCFullYear(), 0, 0));
+    return Math.floor((d - start) / 86400000); // 1..366
+  }
+  function declinationDeg(N) {
+    // Solar declination (good UI approximation)
+    return 23.44 * Math.sin((2 * Math.PI / 365) * (284 + N));
+  }
+  function equationOfTimeMin(N) {
+    // Equation of Time (minutes)
+    const B = 2 * Math.PI * (N - 81) / 364;
+    return 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B);
+  }
+  function computeSunsetUTC(centerLL, δdeg, eotMin) {
+    // Returns "HH:MM:SS UTC" or "—" (polar day/night)
+    const φ = centerLL.lat * Math.PI / 180;
+    const δ = δdeg * Math.PI / 180;
+    const zenith = 90.833 * Math.PI / 180; // std refraction + solar radius
+
+    const cosH0 = (Math.cos(zenith) - Math.sin(φ) * Math.sin(δ)) / (Math.cos(φ) * Math.cos(δ));
+    if (cosH0 < -1 || cosH0 > 1) return '—'; // sun never sets/rises
+
+    const H0deg = Math.acos(cosH0) * 180 / Math.PI; // hour angle at sunset
+    // Local solar noon (hours)
+    const solarNoon = 12 + (eotMin / 60) - (centerLL.lon / 15);
+    // Sunset in local solar time (hours)
+    const sunsetLST = solarNoon + (H0deg / 15);
+    // Convert to UTC hours
+    const utcHours = sunsetLST + (centerLL.lon / 15) - (eotMin / 60);
+
+    const h = ((utcHours % 24) + 24) % 24;
+    const hh = String(Math.floor(h)).padStart(2, '0');
+    const mm = String(Math.floor((h % 1) * 60)).padStart(2, '0');
+    const ss = String(Math.round((((h % 1) * 60) % 1) * 60)).padStart(2, '0');
+    return `${hh}:${mm}:${ss} UTC`;
+  }
+
+  // --- Existing telemetry pieces ---
+  const centerLL = currentCenterLatLon(); // {lat, lon}
+  const in2D = !!(map2dVisible && typeof map2d?.getBearing === 'function');
+
+  const bearingDeg = in2D
+    ? map2d.getBearing()
+    : screenNorthBearingDegAt(centerLL);
+
+  const country = countryAtLonLat(centerLL.lon, centerLL.lat);
+  const location = country?.name || '—';
+
+  const v_kms = Math.abs(autorotateSpeed) * SETTINGS.earthRadiusKm;
+  const v_kmh = v_kms * 3600;
+
+  const dist = cameraDistanceToGlobeCenter();     // scene radii
+  const surface = R * ATMO.scale;                 // scene radii
+  const altitudeKm = Math.max(0, (dist - surface) * SETTINGS.earthRadiusKm);
+
+  const d = new Date(); // current UTC date/time
+  const timeUTC = `${String(d.getUTCHours()).padStart(2,'0')}:` +
+                  `${String(d.getUTCMinutes()).padStart(2,'0')}:` +
+                  `${String(d.getUTCSeconds()).padStart(2,'0')}.` +
+                  `${String(d.getUTCMilliseconds()).padStart(3,'0')} UTC`;
+
+  // --- SUNSET from current UTC date + center lat/lon ---
+  const N = dayOfYearUTC(d);
+  const decl = declinationDeg(N);
+  const eot  = equationOfTimeMin(N);
+  const sunsetUTC = computeSunsetUTC(centerLL, decl, eot);
+
+  return {
+    mode: in2D ? '2d' : '3d',
+    centerLL,                   // {lat, lon}
+    bearingDeg,                 // number
+    mapBearingDeg: in2D ? bearingDeg : undefined,
+    location,                   // string
+    speedKmh: v_kmh,            // number
+    altitudeKm,                 // number
+    timeUTC,                    // "HH:MM:SS.mmm UTC"
+    sunset: sunsetUTC,          // "HH:MM:SS UTC" or "—"
+    status: 'Online'
+  };
 }
 
 
@@ -1569,14 +1654,7 @@ let last = performance.now();
 
 (function animate(now) {
 
-    miniGlobeOverlay.update(
-        globe, 
-        currentCenterLatLon, 
-        screenNorthBearingDegAt, 
-        map2dVisible, 
-        map2d, 
-        _handoffGlobeQuaternion
-    );
+	miniGlobeOverlay.update(globe, buildMiniGlobeTelemetry());
 
 	requestAnimationFrame(animate);
 	const dt = (now - last) / 1000; last = now;
