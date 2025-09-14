@@ -474,6 +474,30 @@ if ('screenSpacePanning' in controls) controls.screenSpacePanning = true;
 
 controls.target.set(0, 0, 0);
 
+
+// --- Keep the visual center fixed while allowing zoom-to-cursor ---
+// OrbitControls will nudge `controls.target` toward the mouse to keep the
+// point under the cursor stationary during a dolly. That breaks our
+// "camera looks at origin" assumption. We counteract by moving the camera
+// by the same offset and resetting target to the origin.
+const _ZERO = new THREE.Vector3(0, 0, 0);
+let _relocking = false;
+
+controls.addEventListener('change', () => {
+  if (_relocking) return;
+  if (!controls.target.equals(_ZERO)) {
+    _relocking = true;
+    const off = controls.target.clone();
+    controls.target.copy(_ZERO);
+    camera.position.sub(off);         // counter-move camera by the same offset
+    // camera.updateProjectionMatrix(); // (not needed unless FOV/aspect changes)
+    _relocking = false;
+  }
+});
+
+
+
+
 const SURFACE = R * ATMO.scale;
 controls.minDistance = SURFACE + 0.15;
 controls.maxDistance = 20;
