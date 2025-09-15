@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { MenuController } from '../script/menu.js';
+import { PanelManager } from '../script/panel-manager.js';
 import { OrbitControls } from "../library/OrbitControls.js";
 import { SunCalcUTC } from "../script/sunset.js";
 import { MiniGlobeOverlay } from "../script/mini.globe.js";
@@ -27,127 +27,21 @@ const SETTINGS = {
 	earthRadiusKm: 6371
 };
 
-// ----------  Menu Initialization -------------
-// Initialize the menu
-const menu = new MenuController({
-    targetElementId: 'application-menu-container',
-    position: 'top-right',           // top-right, top-left, bottom-right, bottom-left
-    layout: 'horizontal',            // horizontal or vertical
-    iconSize: 40,                    // Icon size in pixels
-    margin: 20                       // Margin from container edges
+// Initialize menu with default settings
+const panelManager = new PanelManager();
+
+// Custom configuration
+/*
+const panelManager = new PanelManager({
+	menuPosition: 'top-left',
+	menuLayout: 'vertical',
+	menuIconSize: 50,
+	initialVisibility: {
+		settings: true,  // Show settings panel by default
+		data: true       // Show data panel by default
+	}
 });
-
-// Get panel references
-const panels = {
-    assistant: document.getElementById('hud-assistant'),
-    search: document.getElementById('hud-search'),
-    data: document.getElementById('hud-data'),
-    settings: document.getElementById('hud-settings'),
-    about: document.getElementById('hud-about')
-};
-
-function togglePanel(panelName, isActive) {
-    const panel = panels[panelName];
-    if (panel) {
-        panel.style.display = isActive ? 'block' : 'none';
-        console.log(`${panelName} panel: ${isActive ? 'shown' : 'hidden'}`);
-    }
-}
-
-// Menu event listeners
-const menuContainer = document.getElementById('application-menu-container');
-menuContainer.addEventListener('menu-assistant-toggle', (e) => {
-    togglePanel('assistant', e.detail.active);
-});
-
-menuContainer.addEventListener('menu-search-toggle', (e) => {
-    togglePanel('search', e.detail.active);
-});
-
-menuContainer.addEventListener('menu-data-toggle', (e) => {
-    togglePanel('data', e.detail.active);
-});
-
-menuContainer.addEventListener('menu-settings-toggle', (e) => {
-    togglePanel('settings', e.detail.active);
-});
-
-menuContainer.addEventListener('menu-about-toggle', (e) => {
-    togglePanel('about', e.detail.active);
-});
-
-// Make panels draggable
-function makePanelsDraggable() {
-    Object.values(panels).forEach(panel => {
-        if (!panel) return;
-        
-        const header = panel.querySelector('h1');
-        if (!header) return;
-        
-        // Style header as draggable
-        header.style.cursor = 'move';
-        header.style.userSelect = 'none';
-        
-        let isDragging = false;
-        let currentX = 0;
-        let currentY = 0;
-        let initialX = 0;
-        let initialY = 0;
-        
-        header.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            
-            // Get current panel position
-            const rect = panel.getBoundingClientRect();
-            initialX = e.clientX - rect.left;
-            initialY = e.clientY - rect.top;
-            
-            // Change cursor for entire document
-            document.body.style.cursor = 'move';
-            panel.style.zIndex = '2000'; // Bring to front
-        });
-        
-        document.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            
-            e.preventDefault();
-            
-            currentX = e.clientX - initialX;
-            currentY = e.clientY - initialY;
-            
-            // Keep panel within viewport bounds
-            const maxX = window.innerWidth - panel.offsetWidth;
-            const maxY = window.innerHeight - panel.offsetHeight;
-            
-            currentX = Math.max(0, Math.min(currentX, maxX));
-            currentY = Math.max(0, Math.min(currentY, maxY));
-            
-            // Update panel position
-            panel.style.left = currentX + 'px';
-            panel.style.top = currentY + 'px';
-            panel.style.right = 'auto'; // Override CSS positioning
-            panel.style.bottom = 'auto';
-        });
-        
-        document.addEventListener('mouseup', () => {
-            if (isDragging) {
-                isDragging = false;
-                document.body.style.cursor = 'default';
-                panel.style.zIndex = '1000'; // Reset z-index
-            }
-        });
-    });
-}
-
-// Set initial states (all hidden by default)
-Object.values(panels).forEach(panel => {
-    if (panel) panel.style.display = 'none';
-});
-
-makePanelsDraggable();
-
-
-
+*/
 
 // ---------- 2D Map handoff (MapLibre) ----------
 const TILE_SIZE = 512;           // WebMercator world size used by MapLibre zoom
@@ -156,7 +50,7 @@ const EARTH_R_METERS = SETTINGS.earthRadiusKm * 1000;
 
 // Handoff thresholds (WebMercator zoom)
 const HANDOFF_Z_IN = 5.0;
-const HANDOFF_Z_OUT = 5.0;
+const HANDOFF_Z_OUT = 4.99;
 
 let map2d = null;                   // MapLibre instance
 let map2dVisible = false;
@@ -185,21 +79,42 @@ const AERIAL_STYLE_OBJ = {
 
 // --- Mini-globe telemetry cache / throttles ---
 const _teleCache = {
-	// TIME (recompute once per second)
+	// TIME …
 	lastTimeSec: -1,
 	timeUTC: '—',
 	timeLocal: '—',
 
-	// SUNSET (recompute at most every 60s, or when LL moves enough)
+	// SUNSET …
 	lastSunsetMs: 0,
 	lastSunsetLL: { lat: NaN, lon: NaN },
 	sunset: '—',
 
-	// LOCATION (country lookup) – recompute when LL moves enough or every few seconds
+	// LOCATION …
 	lastLocMs: 0,
 	lastLocLL: { lat: NaN, lon: NaN },
 	location: 'N/A',
+
+	// BEARING (new)
+	bearingDeg: NaN,          // cached normalized bearing in [-180, 180)
+	lastBearingMs: 0          // last time we accepted an update
 };
+
+// Normalize to [-180, 180) and collapse -0 to +0
+function normalizeBearingDeg(b) {
+	if (!Number.isFinite(b)) return 0;
+	let n = ((b % 360) + 360) % 360;   // [0, 360)
+	if (n >= 180) n -= 180 * 2;        // [-180, 180)
+	if (Object.is(n, -0)) n = 0;       // kill -0
+	return n;
+}
+
+// Shortest absolute angular difference in degrees
+function angDiffDeg(a, b) {
+	let d = a - b;
+	d = ((d + 180) % 360) - 180;
+	return Math.abs(d);
+}
+
 
 // thresholds
 const SUNSET_MIN_INTERVAL_MS = 60000; // 60s
@@ -332,6 +247,16 @@ function tryEnter2D() {
 	if (zEst >= HANDOFF_Z_IN) showMap2D(ll, zEst);
 }
 
+// Web Mercator ground resolution (meters per CSS pixel) at latitude/zoom
+function mercMetersPerPixel(latDeg, zoom) {
+	const EQUATOR_CIRCUM_M = 40075016.68557849; // 2πR (R=6378137m)
+	const latRad = THREE.MathUtils.degToRad(latDeg);
+	// Clamp cos(lat) to avoid degeneracy near the poles
+	const cosLat = Math.max(1e-6, Math.abs(Math.cos(latRad)));
+	// 256 px tiles in MapLibre/Mapbox default schema
+	return (EQUATOR_CIRCUM_M * cosLat) / (256 * Math.pow(2, zoom));
+}
+
 
 function buildMiniGlobeTelemetry() {
 
@@ -345,13 +270,35 @@ function buildMiniGlobeTelemetry() {
 
 	const bearingDeg = in2D ? map2d.getBearing() : screenNorthBearingDegAt(refCenter);
 
-
-	const v_kms = Math.abs(autorotateSpeed) * SETTINGS.earthRadiusKm;
+	// SPEED (km/h): zero while 2D is visible
+	const v_kms = (map2dVisible ? 0 : Math.abs(autorotateSpeed)) * SETTINGS.earthRadiusKm;
 	const v_kmh = v_kms * 3600;
 
-	const dist = cameraDistanceToGlobeCenter();
-	const surface = R * ATMO.scale;
-	const altitudeKm = Math.max(0, (dist - surface) * SETTINGS.earthRadiusKm);
+	// ALTITUDE (km):
+	//  - 3D: true camera height above surface (existing behavior)
+	//  - 2D: "equivalent height" that would show the same vertical ground span
+	let altitudeKm;
+	if (in2D && map2d) {
+		// MapLibre zoom & center latitude → meters-per-pixel
+		const c2 = map2d.getCenter();
+		const zoom2d = map2d.getZoom();
+		const mpp = mercMetersPerPixel(c2.lat, zoom2d);       // meters per CSS pixel
+
+		// Use the actual visible container height for 2D
+		const hPx = map2d.getContainer()?.clientHeight || window.innerHeight || 1080;
+
+		// Reuse your 3D camera FOV for equivalence
+		const fovRad = THREE.MathUtils.degToRad(camera.fov || 45);
+
+		// Vertical ground span on screen, then equivalent height from pinhole model
+		const groundSpanMeters = mpp * hPx;
+		const eqHeightMeters = groundSpanMeters / (2 * Math.tan(fovRad / 2));
+		altitudeKm = Math.max(0, eqHeightMeters / 1000);
+	} else {
+		const dist = cameraDistanceToGlobeCenter();
+		const surface = R * ATMO.scale;
+		altitudeKm = Math.max(0, (dist - surface) * SETTINGS.earthRadiusKm);
+	}
 
 	// ----- SLOW: time (once per second) -----
 	const now = new Date();
@@ -401,7 +348,7 @@ function buildMiniGlobeTelemetry() {
 
 	return {
 		mode: in2D ? '2d' : '3d',
-		centerLL,                           // { lat, lon }
+		centerLL,                           // { lat, lon } (unchanged)
 		bearingDeg,                         // number
 		mapBearingDeg: in2D ? bearingDeg : undefined,
 		location: _teleCache.location,      // throttled
@@ -413,6 +360,7 @@ function buildMiniGlobeTelemetry() {
 		status: 'Online'
 	};
 }
+
 
 const sunAutoCfg = {
 	enabled: true,
@@ -598,18 +546,18 @@ function paintSelectionToOverlay(country, opts) {
 let _autoSpinWasEnabled = false;
 
 function pauseAutoSpin() {
-  // if you have a boolean flag, use it; otherwise zero the velocity
-  if (typeof autoSpinEnabled !== 'undefined') {
-    _autoSpinWasEnabled = !!autoSpinEnabled;
-    autoSpinEnabled = false;
-  }
-  if (typeof spinVel !== 'undefined' && spinVel?.set) spinVel.set(0, 0, 0);
+	// if you have a boolean flag, use it; otherwise zero the velocity
+	if (typeof autoSpinEnabled !== 'undefined') {
+		_autoSpinWasEnabled = !!autoSpinEnabled;
+		autoSpinEnabled = false;
+	}
+	if (typeof spinVel !== 'undefined' && spinVel?.set) spinVel.set(0, 0, 0);
 }
 
 function resumeAutoSpin() {
-  if (typeof autoSpinEnabled !== 'undefined') {
-    autoSpinEnabled = _autoSpinWasEnabled;
-  }
+	if (typeof autoSpinEnabled !== 'undefined') {
+		autoSpinEnabled = _autoSpinWasEnabled;
+	}
 }
 
 
@@ -1369,9 +1317,9 @@ const selFillHex = document.getElementById('sel-fill-hex');
 
 // Initialize the country data display
 const countryDataDisplay = new CountryDataDisplay(
-    document.getElementById('propsList'),
-    document.getElementById('propsBox'),
-    document.getElementById('pickedInfo')
+	document.getElementById('propsList'),
+	document.getElementById('propsBox'),
+	document.getElementById('pickedInfo')
 );
 
 // Marker call-out
@@ -1874,42 +1822,42 @@ function computeTargetQuatForCenter(latDeg, lonDeg, opts = {}) {
 
 
 function startNavTweenToQuat(qTarget, dur = 1200, onComplete) {
-  // Stop any in-flight tween and pause auto-spin
-  if (typeof navTween !== 'undefined' && navTween?.stop) { try { navTween.stop(); } catch {} }
-  navTween = null;
-  pauseAutoSpin();
+	// Stop any in-flight tween and pause auto-spin
+	if (typeof navTween !== 'undefined' && navTween?.stop) { try { navTween.stop(); } catch { } }
+	navTween = null;
+	pauseAutoSpin();
 
-  // Normalize start/target and force short arc
-  const qStart = globe.quaternion.clone().normalize();
-  const qTo = (qTarget instanceof THREE.Quaternion
-    ? qTarget.clone()
-    : new THREE.Quaternion(qTarget.x, qTarget.y, qTarget.z, qTarget.w)
-  ).normalize();
+	// Normalize start/target and force short arc
+	const qStart = globe.quaternion.clone().normalize();
+	const qTo = (qTarget instanceof THREE.Quaternion
+		? qTarget.clone()
+		: new THREE.Quaternion(qTarget.x, qTarget.y, qTarget.z, qTarget.w)
+	).normalize();
 
-  let dot = THREE.MathUtils.clamp(qStart.dot(qTo), -1, 1);
-  if (dot < 0) { qTo.set(-qTo.x, -qTo.y, -qTo.z, -qTo.w); dot = -dot; }
+	let dot = THREE.MathUtils.clamp(qStart.dot(qTo), -1, 1);
+	if (dot < 0) { qTo.set(-qTo.x, -qTo.y, -qTo.z, -qTo.w); dot = -dot; }
 
-  // Snap if already there
-  const ang = Math.acos(dot);
-  if (ang < THREE.MathUtils.degToRad(0.1)) {
-    globe.quaternion.copy(qTo);
-    resumeAutoSpin();
-    if (typeof onComplete === 'function') onComplete();
-    return;
-  }
+	// Snap if already there
+	const ang = Math.acos(dot);
+	if (ang < THREE.MathUtils.degToRad(0.1)) {
+		globe.quaternion.copy(qTo);
+		resumeAutoSpin();
+		if (typeof onComplete === 'function') onComplete();
+		return;
+	}
 
-  // Start tween; your render loop should slerp using navTween.t/dur
-  navTween = {
-    from: qStart,
-    to: qTo,
-    t: 0,
-    dur,
-    lastQ: qStart.clone(),
-    onComplete: () => {
-      resumeAutoSpin();
-      if (typeof onComplete === 'function') onComplete();
-    }
-  };
+	// Start tween; your render loop should slerp using navTween.t/dur
+	navTween = {
+		from: qStart,
+		to: qTo,
+		t: 0,
+		dur,
+		lastQ: qStart.clone(),
+		onComplete: () => {
+			resumeAutoSpin();
+			if (typeof onComplete === 'function') onComplete();
+		}
+	};
 }
 
 
@@ -1936,12 +1884,12 @@ function animateCenterOnGlobe(latDeg, lonDeg, opts = {}) {
 
 
 document.getElementById('btn-face-n').addEventListener('click', () => {
-  if (navTween?.stop) { try { navTween.stop(); } catch {} }
-  animateCenterOnGlobe(90, 0, { preserveRoll: true });
+	if (navTween?.stop) { try { navTween.stop(); } catch { } }
+	animateCenterOnGlobe(90, 0, { preserveRoll: true });
 });
 document.getElementById('btn-face-s').addEventListener('click', () => {
-  if (navTween?.stop) { try { navTween.stop(); } catch {} }
-  animateCenterOnGlobe(-90, 0, { preserveRoll: true });
+	if (navTween?.stop) { try { navTween.stop(); } catch { } }
+	animateCenterOnGlobe(-90, 0, { preserveRoll: true });
 });
 
 
@@ -2012,105 +1960,105 @@ function orbitCameraAroundY(angle) {
 let last = performance.now();
 
 (function animate(now) {
-  // schedule next frame first
-  requestAnimationFrame(animate);
+	// schedule next frame first
+	requestAnimationFrame(animate);
 
-  // mini globe HUD
-  miniGlobeOverlay.update(globe, buildMiniGlobeTelemetry());
+	// mini globe HUD
+	miniGlobeOverlay.update(globe, buildMiniGlobeTelemetry());
 
-  // time step (clamped to avoid huge jumps on tab switches)
-  let dt = (now - last) / 1000;
-  if (!Number.isFinite(dt) || dt < 0) dt = 0;
-  if (dt > 0.05) dt = 0.05; // cap ~50ms
-  last = now;
+	// time step (clamped to avoid huge jumps on tab switches)
+	let dt = (now - last) / 1000;
+	if (!Number.isFinite(dt) || dt < 0) dt = 0;
+	if (dt > 0.05) dt = 0.05; // cap ~50ms
+	last = now;
 
-  // --- 2D handoff check (throttled ~100ms) and honoring cooldown ---
-  if (!animate._handoffTimer) animate._handoffTimer = 0;
-  animate._handoffTimer += dt;
-  if (animate._handoffTimer >= 0.10) {
-    animate._handoffTimer = 0;
-    if (!map2dVisible && performance.now() >= _handoffCooldownUntil) {
-      tryEnter2D();
-    }
-  }
+	// --- 2D handoff check (throttled ~100ms) and honoring cooldown ---
+	if (!animate._handoffTimer) animate._handoffTimer = 0;
+	animate._handoffTimer += dt;
+	if (animate._handoffTimer >= 0.10) {
+		animate._handoffTimer = 0;
+		if (!map2dVisible && performance.now() >= _handoffCooldownUntil) {
+			tryEnter2D();
+		}
+	}
 
-  // If a navigation tween is active, drive it; else run autorotate/inertia
-  if (navTween) {
-    navTween.t += dt * 1000;
-    const a = Math.min(1, navTween.t / navTween.dur);
-    const e = Ease.cubicInOut(a);
+	// If a navigation tween is active, drive it; else run autorotate/inertia
+	if (navTween) {
+		navTween.t += dt * 1000;
+		const a = Math.min(1, navTween.t / navTween.dur);
+		const e = Ease.cubicInOut(a);
 
-    // slerp from->to
-    const qCur = new THREE.Quaternion().slerpQuaternions(navTween.from, navTween.to, e);
+		// slerp from->to
+		const qCur = new THREE.Quaternion().slerpQuaternions(navTween.from, navTween.to, e);
 
-    // delta from last to current (for sky counter-rotation)
-    const qPrev = navTween.lastQ;
-    const qDelta = qPrev.clone().invert().multiply(qCur);
+		// delta from last to current (for sky counter-rotation)
+		const qPrev = navTween.lastQ;
+		const qDelta = qPrev.clone().invert().multiply(qCur);
 
-    // apply to globe
-    globe.quaternion.copy(qCur).normalize();
+		// apply to globe
+		globe.quaternion.copy(qCur).normalize();
 
-    // counter-rotate sky if stars movement is enabled
-    if (chkStarsMotion?.checked && sky) {
-      const qInv = qDelta.clone().invert();
-      sky.quaternion.premultiply(qInv).normalize();
-    }
+		// counter-rotate sky if stars movement is enabled
+		if (chkStarsMotion?.checked && sky) {
+			const qInv = qDelta.clone().invert();
+			sky.quaternion.premultiply(qInv).normalize();
+		}
 
-    navTween.lastQ = qCur;
+		navTween.lastQ = qCur;
 
-    if (a >= 1) {
-      const cb = navTween.onComplete;
-      navTween = null;
-      if (typeof cb === 'function') cb();
-    }
-  } else {
-    // --- Autorotate (only when not dragging and 2D is hidden) ---
-    if (!pointerIsDown && !map2dVisible) {
-      const yaw = autorotateSpeed * dt;
-      if (yaw) {
-        globe.rotateOnAxis(LOCAL_Y, yaw);
-        if (typeof clouds !== 'undefined' && clouds) {
-          const drift = autorotateSpeed * 0.25 * dt;
-          if (drift) clouds.rotateOnAxis(LOCAL_Y, drift);
-        }
-        if (chkStarsMotion?.checked && sky) {
-          sky.rotateOnAxis(LOCAL_Y, -yaw);
-        }
-      }
-    }
+		if (a >= 1) {
+			const cb = navTween.onComplete;
+			navTween = null;
+			if (typeof cb === 'function') cb();
+		}
+	} else {
+		// --- Autorotate (only when not dragging and 2D is hidden) ---
+		if (!pointerIsDown && !map2dVisible) {
+			const yaw = autorotateSpeed * dt;
+			if (yaw) {
+				globe.rotateOnAxis(LOCAL_Y, yaw);
+				if (typeof clouds !== 'undefined' && clouds) {
+					const drift = autorotateSpeed * 0.25 * dt;
+					if (drift) clouds.rotateOnAxis(LOCAL_Y, drift);
+				}
+				if (chkStarsMotion?.checked && sky) {
+					sky.rotateOnAxis(LOCAL_Y, -yaw);
+				}
+			}
+		}
 
-    // --- Inertial spin (from drag) ---
-    if (typeof spinVel !== 'undefined' && spinVel) {
-      const speed = spinVel.length();
-      if (speed > 1e-5) {
-        const axis = spinVel.clone().normalize();
-        const angle = speed * dt;
-        qTmp.setFromAxisAngle(axis, angle);
-        globe.quaternion.premultiply(qTmp).normalize();
+		// --- Inertial spin (from drag) ---
+		if (typeof spinVel !== 'undefined' && spinVel) {
+			const speed = spinVel.length();
+			if (speed > 1e-5) {
+				const axis = spinVel.clone().normalize();
+				const angle = speed * dt;
+				qTmp.setFromAxisAngle(axis, angle);
+				globe.quaternion.premultiply(qTmp).normalize();
 
-        if (chkStarsMotion?.checked && sky) {
-          const qInv = new THREE.Quaternion().setFromAxisAngle(axis, -angle);
-          sky.quaternion.premultiply(qInv).normalize();
-        }
+				if (chkStarsMotion?.checked && sky) {
+					const qInv = new THREE.Quaternion().setFromAxisAngle(axis, -angle);
+					sky.quaternion.premultiply(qInv).normalize();
+				}
 
-        spinVel.multiplyScalar(decayFactor(dt));
-      }
-    }
-  }
+				spinVel.multiplyScalar(decayFactor(dt));
+			}
+		}
+	}
 
-  // lighting / controls / UI / render
-  atmoUniforms.sunDirW.value.copy(dirLight.position).normalize();
+	// lighting / controls / UI / render
+	atmoUniforms.sunDirW.value.copy(dirLight.position).normalize();
 
-  controls.update();
-  MarkerManager.update();
-  Callout.update();
+	controls.update();
+	MarkerManager.update();
+	Callout.update();
 
-  applySkyBrightness();
-  updateViewReadout();
+	applySkyBrightness();
+	updateViewReadout();
 
-  updateSunFromSolarTimeOncePerSecond();
+	updateSunFromSolarTimeOncePerSecond();
 
-  renderer.render(scene, camera);
+	renderer.render(scene, camera);
 })(last);
 
 
@@ -2171,23 +2119,23 @@ function showPicked(latDeg, lonDeg, country) {
 
 async function showPicked(latDeg, lonDeg, country) {
 	const selectedCountry = await countryDataDisplay.showPicked(latDeg, lonDeg, country);
-    
-    // The rest of your original showPicked function logic
-    // Show an edge callout for this selection
-    const title = country ? `${country.name}${country.iso3 ? ` (${country.iso3})` : ''}` : 'Selected location';
-    const lines = [`${formatLat(latDeg)}, ${formatLon(lonDeg)}`];
-    Callout.show({ lat: latDeg, lon: lonDeg, title, lines });
 
-    if (country) {
-        highlightCountry(country);
-    } else {
-        clearSelectedBorders();
-    }
+	// The rest of your original showPicked function logic
+	// Show an edge callout for this selection
+	const title = country ? `${country.name}${country.iso3 ? ` (${country.iso3})` : ''}` : 'Selected location';
+	const lines = [`${formatLat(latDeg)}, ${formatLon(lonDeg)}`];
+	Callout.show({ lat: latDeg, lon: lonDeg, title, lines });
 
-    lastSelectedCountry = country || null;
-    applySelectionStyling();
-    
-    return selectedCountry;
+	if (country) {
+		highlightCountry(country);
+	} else {
+		clearSelectedBorders();
+	}
+
+	lastSelectedCountry = country || null;
+	applySelectionStyling();
+
+	return selectedCountry;
 }
 
 
@@ -2330,7 +2278,7 @@ function defaultMapStyleFromEarthControls() {
 	return (v === 'terrain') ? 'streets' : 'aerial';
 }
 
-// CORRECTED VERSION: This version properly accounts for globe rotation
+/*
 // CORRECTED VERSION: This version properly accounts for globe rotation
 function screenNorthBearingDegAt(centerLL) {
 	const lat = THREE.MathUtils.degToRad(centerLL.lat);
@@ -2365,6 +2313,58 @@ function screenNorthBearingDegAt(centerLL) {
 	let brg = THREE.MathUtils.radToDeg(Math.atan2(x, y));  // already in [-180,180]
 	return brg;
 }
+*/
+
+function screenNorthBearingDegAt(centerLL) {
+	// Ensure matrices are current (cheap; helps if called mid-frame)
+	if (camera.updateMatrixWorld) camera.updateMatrixWorld();
+	if (globe.updateMatrixWorld) globe.updateMatrixWorld();
+
+	// Clamp latitude slightly away from the poles to avoid degeneracy
+	const poleSafeLat = 89.999; // minimal change; keep your behavior
+	const latDeg = Math.max(-poleSafeLat, Math.min(poleSafeLat, centerLL.lat));
+	const lonDeg = normalizeLon ? normalizeLon(centerLL.lon) : centerLL.lon;
+
+	const lat = THREE.MathUtils.degToRad(latDeg);
+	const lon = THREE.MathUtils.degToRad(lonDeg);
+
+	// Point on unit sphere and local tangent basis (LOCAL coords)
+	const clat = Math.cos(lat), slat = Math.sin(lat);
+	const clon = Math.cos(lon), slon = Math.sin(lon);
+	const pLocal = new THREE.Vector3(clat * clon, slat, clat * slon);
+	const northLocal = new THREE.Vector3(-slat * clon, clat, -slat * slon).normalize();
+	const eastLocal = new THREE.Vector3(-slon, 0, clon).normalize();
+
+	// Rotate into WORLD space using the globe's orientation
+	const qGlobe = globe.quaternion; // assumed normalized
+	const p = pLocal.clone().applyQuaternion(qGlobe);
+	const north = northLocal.clone().applyQuaternion(qGlobe);
+	const east = eastLocal.clone().applyQuaternion(qGlobe);
+
+	// Camera "screen up" in world space
+	const camUpWorld = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+
+	// Project screen-up into the tangent plane at p
+	const upTangent = camUpWorld.clone().sub(p.clone().multiplyScalar(camUpWorld.dot(p)));
+
+	const len2 = upTangent.lengthSq();
+	if (len2 < 1e-12) return 0; // looking straight along the normal—bearing undefined; pick 0
+
+	upTangent.multiplyScalar(1 / Math.sqrt(len2)); // normalize
+
+	// Bearing: clockwise degrees from true north to projected screen-up
+	const x = upTangent.dot(east);
+	const y = upTangent.dot(north);
+	let brg = THREE.MathUtils.radToDeg(Math.atan2(x, y)); // [-180,180]
+
+	// Snap tiny jitter and kill -0
+	if (Math.abs(brg) < 0.05) brg = 0;
+	if (Object.is(brg, -0)) brg = 0;
+
+	return brg; // in [-180,180]
+}
+
+
 
 
 // Add this helper function to force bearing application

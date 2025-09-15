@@ -87,18 +87,10 @@ export class MenuController {
 
     attachEventListeners() {
         const buttons = this.menuElement.querySelectorAll('.globe-menu-button');
-        console.log('Attaching event listeners to', buttons.length, 'buttons');
         
-        buttons.forEach((button, index) => {
-            console.log(`Button ${index}:`, button.getAttribute('data-option'));
-            
+        buttons.forEach((button, _) => {
             button.addEventListener('click', (e) => {
-                console.log('Button clicked:', e.currentTarget.getAttribute('data-option'));
                 this.handleToggle(e);
-            });
-            
-            button.addEventListener('mouseenter', (e) => {
-                console.log('Button hovered:', e.currentTarget.getAttribute('data-option'));
             });
         });
     }
