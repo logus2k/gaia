@@ -33,7 +33,7 @@ export class MiniGlobeOverlay {
         this.canvas.width = this.size;
         this.canvas.height = this.size;
         this.canvas.style.position = 'fixed';
-        this.canvas.style.bottom = '30px';
+        this.canvas.style.bottom = '20px';
         this.canvas.style.left = '20px';
         this.canvas.style.zIndex = '10000';
         this.canvas.style.borderRadius = '8px';
@@ -170,8 +170,8 @@ export class MiniGlobeOverlay {
         label.style.color = '#00ff41';
         label.style.fontSize = '11px';
         label.style.fontFamily = 'Monaco, "Lucida Console", "Courier New", monospace';
-        label.style.textAlign = 'left';
-        label.style.width = '1500px';
+        label.style.textAlign = 'center';
+        label.style.width = '100%';
         label.style.background = 'transparent';
         label.style.padding = '0px';
         label.style.borderRadius = '4px';

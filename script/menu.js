@@ -19,7 +19,7 @@ export class MenuController {
         this.menuOptions = [
             { id: 'assistant', icon: 'smart_toy', label: 'Assistant' },
             { id: 'search', icon: 'search', label: 'Search' },
-            { id: 'data', icon: 'analytics', label: 'Data' },
+            { id: 'data', icon: 'description', label: 'Data' },
             { id: 'settings', icon: 'settings', label: 'Settings' },
             { id: 'about', icon: 'info', label: 'About' }
         ];
