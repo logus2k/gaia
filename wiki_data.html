@@ -55,6 +55,17 @@
             background-color: #e8f5e9;
             color: #2e7d32;
         }
+        .country-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        .country-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -69,10 +80,8 @@
     <div id="status"></div>
     <div id="results"></div>
 
+    <script src="./script/wikipedia.data.manager.js"></script>
     <script>
-        // Include the CountryDataManager class code here
-        // ... (the corrected class code above)
-        
         const countryManager = new CountryDataManager();
         let searchTimeout = null;
 
@@ -110,7 +119,7 @@
             try {
                 showStatus('Searching...', 'loading');
                 const results = await countryManager.searchByName(searchTerm);
-                displayResults(results, searchTerm);
+                await displayResults(results, searchTerm);
                 showStatus('Found ' + results.length + ' countries', 'success');
             } catch (error) {
                 showStatus('Search failed: ' + error.message, 'error');
@@ -131,18 +140,22 @@
             for (let i = 0; i < Math.min(countries.length, 5); i++) { // Limit to 5 for demo
                 const country = countries[i];
                 try {
+                    // Handle both old (properties) and new (direct) data structures
+                    const countryName = (country.properties && country.properties.name) || country.name || 'Unknown';
+                    showStatus('Loading details for ' + countryName + '...', 'loading');
                     const formattedInfo = await countryManager.formatCountryInfoWithWikidata(country);
-                    html += await createCountryCard(formattedInfo);
+                    html += createCountryCard(formattedInfo);
                 } catch (error) {
                     console.error('Error processing country:', error);
-                    html += '<div class="country-card">Error loading data for ' + country.properties.name + '</div>';
+                    const countryName = (country.properties && country.properties.name) || country.name || 'Unknown';
+                    html += '<div class="country-card">Error loading data for ' + countryName + '</div>';
                 }
             }
             
             resultsDiv.innerHTML = html;
         }
 
-        async function createCountryCard(countryInfo) {
+        function createCountryCard(countryInfo) {
             let wikidataHtml = '';
             if (countryInfo.wikidata) {
                 wikidataHtml = '<div class="wikidata-section"><strong>Wikidata Information:</strong><br>';
@@ -164,10 +177,21 @@
                 wikidataHtml += '</div>';
             }
 
-            return '<div class="country-card"><div style="font-size: 18px; font-weight: bold; color: #333; margin-bottom: 10px;">' + countryInfo.name + ' (' + countryInfo.code + ')</div><div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;"><div><strong>Population:</strong> ' + countryInfo.population + '</div><div><strong>GDP:</strong> ' + countryInfo.gdp + '</div><div><strong>Area:</strong> ' + countryInfo.area + '</div><div><strong>Continent:</strong> ' + countryInfo.continent + '</div><div><strong>Region:</strong> ' + countryInfo.region + '</div><div><strong>Income Group:</strong> ' + countryInfo.incomeGroup + '</div></div>' + wikidataHtml + '</div>';
+            return '<div class="country-card">' +
+                '<div class="country-title">' + countryInfo.name + ' (' + countryInfo.code + ')</div>' +
+                '<div class="country-info">' +
+                    '<div><strong>Population:</strong> ' + countryInfo.population + '</div>' +
+                    '<div><strong>GDP:</strong> ' + countryInfo.gdp + '</div>' +
+                    '<div><strong>Continent:</strong> ' + countryInfo.continent + '</div>' +
+                    '<div><strong>Region:</strong> ' + countryInfo.region + '</div>' +
+                    '<div><strong>Income Group:</strong> ' + countryInfo.incomeGroup + '</div>' +
+                    '<div><strong>Economy:</strong> ' + countryInfo.economy + '</div>' +
+                '</div>' +
+                wikidataHtml +
+            '</div>';
         }
 
-        // Setup real-time search
+        // Setup real-time search with longer delay to avoid API spam
         document.getElementById('searchInput').addEventListener('input', function() {
             if (searchTimeout) {
                 clearTimeout(searchTimeout);
@@ -177,7 +201,7 @@
                 if (this.value.trim()) {
                     performSearch();
                 }
-            }, 300);
+            }, 800); // Increased delay for API calls
         });
 
         // Auto-load data when page loads

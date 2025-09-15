@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wikidata Fetcher</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #7f8c8d;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .instructions {
+            background-color: #e8f4f8;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            border-left: 4px solid #3498db;
+        }
+        .code-block {
+            background-color: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+        .step {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e1e4e8;
+        }
+        .step-number {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            background-color: #3498db;
+            color: white;
+            text-align: center;
+            line-height: 30px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .note {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 6px;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .file-structure {
+            background-color: #f8f9fa;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: monospace;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Wikidata Fetcher</h1>
+        <p class="subtitle">Node.js script to fetch and store country data from Wikidata</p>
+        
+        <div class="instructions">
+            <p>This solution creates a Node.js script that fetches country data from Wikidata and stores it locally, eliminating CORS issues and improving performance.</p>
+        </div>
+        
+        <div class="step">
+            <h3><span class="step-number">1</span>Create the Node.js Script</h3>
+            <p>Save the following code as <code>fetch-wikidata.js</code> in your project directory:</p>
+            
+            <div class="code-block">
+const fs = require('fs');
+const path = require('path');
+const fetch = require('node-fetch');
+
+// Configuration
+const COUNTRIES_DATA_PATH = path.join(__dirname, 'data', 'countries-basic.json');
+const OUTPUT_DIR = path.join(__dirname, 'data', 'countries');
+const DELAY_BETWEEN_REQUESTS = 1000; // 1 second delay between requests to be polite to the API
+
+// Ensure output directory exists
+if (!fs.existsSync(OUTPUT_DIR)) {
+    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+}
+
+async function fetchWikidata(wikidataId) {
+    const url = `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${wikidataId}&format=json`;
+    
+    try {
+        console.log(`Fetching data for ${wikidataId}...`);
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'CountryDataManager/1.0 (https://example.com)'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.entities && data.entities[wikidataId]) {
+            const entity = data.entities[wikidataId];
+            
+            // Extract the information we need
+            const result = {
+                wikidataId: wikidataId,
+                name: entity.labels?.en?.value || null,
+                description: entity.descriptions?.en?.value || null,
+                capital: extractClaimValue(entity.claims?.P36), // Capital
+                currency: extractClaimValue(entity.claims?.P38), // Currency
+                language: extractClaimValue(entity.claims?.P37), // Official language
+                population: extractClaimValue(entity.claims?.P1082), // Population
+                area: extractClaimValue(entity.claims?.P2046), // Area
+                coordinates: extractClaimValue(entity.claims?.P625), // Coordinates
+                flag: extractClaimValue(entity.claims?.P41) // Flag image
+            };
+            
+            return result;
+        } else {
+            throw new Error(`No entity found for ID: ${wikidataId}`);
+        }
+    } catch (error) {
+        console.error(`Error fetching ${wikidataId}:`, error.message);
+        return null;
+    }
+}
+
+function extractClaimValue(claim) {
+    if (!claim || !claim[0]) return null;
+    
+    const mainsnak = claim[0].mainsnak;
+    if (mainsnak.datavalue) {
+        // Handle different data types
+        const datavalue = mainsnak.datavalue;
+        if (datavalue.type === 'wikibase-entityid') {
+            return datavalue.value.id;
+        } else if (datavalue.type === 'quantity') {
+            return datavalue.value.amount;
+        } else if (datavalue.type === 'time') {
+            return datavalue.value.time;
+        } else if (datavalue.type === 'monolingualtext') {
+            return datavalue.value.text;
+        } else if (datavalue.type === 'string') {
+            return datavalue.value;
+        } else if (datavalue.type === 'globecoordinate') {
+            return datavalue.value;
+        }
+    }
+    
+    return null;
+}
+
+async function fetchAllCountries() {
+    try {
+        // Read the country data file
+        const rawData = fs.readFileSync(COUNTRIES_DATA_PATH);
+        const countryData = JSON.parse(rawData);
+        
+        // Get all unique Wikidata IDs
+        const wikidataIds = new Set();
+        const countries = countryData.countries || countryData.features || [];
+        
+        countries.forEach(country => {
+            const props = country.properties || country;
+            if (props.wikidataid) {
+                wikidataIds.add(props.wikidataid);
+            }
+        });
+        
+        console.log(`Found ${wikidataIds.size} countries with Wikidata IDs`);
+        
+        // Fetch data for each country with a delay between requests
+        const results = [];
+        const idsArray = Array.from(wikidataIds);
+        
+        for (let i = 0; i < idsArray.length; i++) {
+            const id = idsArray[i];
+            const data = await fetchWikidata(id);
+            
+            if (data) {
+                // Save individual country file
+                const filename = path.join(OUTPUT_DIR, `${id}.json`);
+                fs.writeFileSync(filename, JSON.stringify(data, null, 2));
+                results.push(data);
+            }
+            
+            // Add delay between requests (to be polite to the API)
+            if (i < idsArray.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_REQUESTS));
+            }
+        }
+        
+        // Also save a combined file with all countries
+        const combinedFilename = path.join(OUTPUT_DIR, 'all-countries.json');
+        fs.writeFileSync(combinedFilename, JSON.stringify(results, null, 2));
+        
+        console.log(`Successfully fetched data for ${results.length} countries`);
+        console.log(`Individual files saved in: ${OUTPUT_DIR}`);
+        console.log(`Combined file saved as: ${combinedFilename}`);
+        
+    } catch (error) {
+        console.error('Error:', error.message);
+    }
+}
+
+// Run the script
+fetchAllCountries();
+            </div>
+        </div>
+        
+        <div class="step">
+            <h3><span class="step-number">2</span>Install Dependencies</h3>
+            <p>Run the following command in your terminal to install the required dependency:</p>
+            
+            <div class="code-block">
+npm install node-fetch
+            </div>
+        </div>
+        
+        <div class="step">
+            <h3><span class="step-number">3</span>Run the Script</h3>
+            <p>Execute the script with Node.js:</p>
+            
+            <div class="code-block">
+node fetch-wikidata.js
+            </div>
+            
+            <p>The script will:</p>
+            <ul>
+                <li>Read your country data file</li>
+                <li>Extract all Wikidata IDs</li>
+                <li>Fetch detailed information for each country</li>
+                <li>Save individual JSON files for each country</li>
+                <li>Create a combined JSON file with all countries</li>
+            </ul>
+            
+            <div class="file-structure">
+                data/<br>
+                ├── countries-basic.json<br>
+                └── countries/<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;├── Q804.json<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;├── Q16.json<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;├── ...<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;└── all-countries.json
+            </div>
+        </div>
+        
+        <div class="step">
+            <h3><span class="step-number">4</span>Modify Your Frontend</h3>
+            <p>Once you have the data, update your frontend to load from the local files:</p>
+            
+            <div class="code-block">
+// In your CountryDataManager class, modify the fetchWikidataInfo method:
+async fetchWikidataInfo(wikidataId) {
+    try {
+        // Try to load from local file first
+        const response = await fetch(`data/countries/${wikidataId}.json`);
+        if (response.ok) {
+            return await response.json();
+        }
+        throw new Error('Local file not found');
+    } catch (error) {
+        console.warn(`Could not load local data for ${wikidataId}:`, error);
+        // Fallback to API if needed (though you shouldn't need it)
+        return this.fetchFromWikidataAPI(wikidataId);
+    }
+}
+            </div>
+        </div>
+        
+        <div class="note">
+            <strong>Note:</strong> The script includes a 1-second delay between requests to be respectful to Wikidata's servers. 
+            For a few hundred countries, this means the script will take several minutes to complete.
+        </div>
+        
+        <div class="note">
+            <strong>Scheduling:</strong> You can set up a cron job or scheduled task to run this script periodically 
+            (e.g., once a month) to keep your local data updated.
+        </div>
+    </div>
+</body>
+</html>

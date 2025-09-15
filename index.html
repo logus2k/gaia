@@ -5,6 +5,7 @@
 	<meta charset="utf-8" />
 	<title>Gaia</title>
 	<link rel="stylesheet" href="./style/styles.css" />
+	<link rel="stylesheet" href="./style/menu.css" />
 	<link rel="stylesheet" href="./style/maplibre-gl.css" />
 	<link rel="icon" href="data:,">
 	<script type="importmap">{ "imports": { "three": "./library/three.module.min.js" } }</script>
@@ -16,9 +17,14 @@
 	<div id="map2d"></div>
 
 	<div id="overlay">
-		<!-- RIGHT HUD: main controls -->
-		<div class="hud right" id="hud-main">
-			<h1>Earth Controls</h1>
+
+		<!-- Menu -->
+		<div id="application-menu-container"></div>
+
+		<!-- SETTINGS HUD: UI Controls -->
+		<div class="hud settings" id="hud-settings">
+			<h1>Settings</h1>
+			<div class="sep"></div>
 
 			<!-- Navigation -->
 			<div class="row" style="align-items:flex-start;">
@@ -133,37 +139,7 @@
 				</div>
 			</div>
 			<input id="speed" type="range" min="0" max="1" step="0.01" value="0.01" />
-			<!-- datalist + scale labels removed -->
 
-			<div class="mini" style="opacity:.75; margin-top:8px;">Drag to rotate · Wheel to zoom</div>
-		</div>
-
-		<!-- LEFT HUD: Data Explorer -->
-		<div class="hud left" id="hud-explorer">
-			<h1>Data Explorer</h1>
-
-			<div class="mini">Click the globe to inspect a location</div>
-			<div class="row" style="align-items:flex-start;">
-				<div style="flex:1;">
-					<input id="searchBox" type="search" placeholder="lat,lon • or location name" />
-					<div class="hint">Examples: <code>38.7223, -9.1393</code> · <code>Lisbon</code> ·
-						<code>Portugal</code>
-					</div>
-				</div>
-				<button class="btn" id="btn-search">Go</button>
-			</div>
-
-			<div id="searchStatus" class="mini" style="margin-top:4px; opacity:.8;">Indexing locations...</div>
-			<div class="results hidden" id="searchResults"></div>
-
-			<div class="sep"></div>
-
-			<div id="pickedInfo" class="mini">No location picked yet</div>
-			<div class="props hidden" id="propsBox">
-				<dl id="propsList"></dl>
-			</div>
-
-			<!-- still inside <div class="hud left" id="hud-explorer"> -->
 			<div class="sep"></div>
 
 			<h1>Selection styling</h1>
@@ -191,6 +167,50 @@
 			</div>
 
 		</div>
+
+		<!-- SEARCH HUD: Data Explorer -->
+		<div class="hud search" id="hud-search">
+			<h1>Search</h1>
+			<div class="sep"></div>
+			<div class="mini">Click the globe to inspect a location</div>
+			<div class="row" style="align-items:flex-start;">
+				<div style="flex:1;">
+					<input id="searchBox" type="search" placeholder="lat,lon • or location name" />
+					<div class="hint">Examples: <code>38.7223, -9.1393</code> · <code>Lisbon</code> ·
+						<code>Portugal</code>
+					</div>
+				</div>
+				<button class="btn" id="btn-search">Go</button>
+			</div>
+
+			<div id="searchStatus" class="mini" style="margin-top:4px; opacity:.8;">Indexing locations...</div>
+			<div class="results hidden" id="searchResults"></div>
+
+		</div>
+
+		<!-- DATA HUD -->
+		<div class="hud data" id="hud-data">
+			<h1>Data Explorer</h1>
+			<div class="sep"></div>
+			<div id="pickedInfo" class="mini">No location picked yet</div>
+			<div class="props hidden" id="propsBox">
+				<dl id="propsList"></dl>
+			</div>
+		</div>
+
+		<!-- ASSISTANT HUD -->
+		<div class="hud assistant" id="hud-assistant">
+			<h1>Assistant</h1>
+			<div class="sep"></div>
+			<div id="assistantPanel" class="mini">Assistant is offline</div>
+		</div>
+
+		<!-- ABOUT HUD -->
+		<div class="hud about" id="hud-about">
+			<h1>Info</h1>
+			<div class="sep"></div>
+			<div id="aboutPanel" class="mini">Info TBD</div>
+		</div>		
 
 	</div>
 

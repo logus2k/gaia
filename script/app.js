@@ -1,7 +1,9 @@
 import * as THREE from "three";
+import { MenuController } from '../script/menu.js';
 import { OrbitControls } from "../library/OrbitControls.js";
 import { SunCalcUTC } from "../script/sunset.js";
 import { MiniGlobeOverlay } from "../script/mini.globe.js";
+import { CountryDataDisplay } from "../script/country.data.display.js";
 
 
 SunCalcUTC.setLongitudeConvention('east');
@@ -24,6 +26,128 @@ const SETTINGS = {
 	globeColorAlpha: 1.0,
 	earthRadiusKm: 6371
 };
+
+// ----------  Menu Initialization -------------
+// Initialize the menu
+const menu = new MenuController({
+    targetElementId: 'application-menu-container',
+    position: 'top-right',           // top-right, top-left, bottom-right, bottom-left
+    layout: 'horizontal',            // horizontal or vertical
+    iconSize: 40,                    // Icon size in pixels
+    margin: 20                       // Margin from container edges
+});
+
+// Get panel references
+const panels = {
+    assistant: document.getElementById('hud-assistant'),
+    search: document.getElementById('hud-search'),
+    data: document.getElementById('hud-data'),
+    settings: document.getElementById('hud-settings'),
+    about: document.getElementById('hud-about')
+};
+
+function togglePanel(panelName, isActive) {
+    const panel = panels[panelName];
+    if (panel) {
+        panel.style.display = isActive ? 'block' : 'none';
+        console.log(`${panelName} panel: ${isActive ? 'shown' : 'hidden'}`);
+    }
+}
+
+// Menu event listeners
+const menuContainer = document.getElementById('application-menu-container');
+menuContainer.addEventListener('menu-assistant-toggle', (e) => {
+    togglePanel('assistant', e.detail.active);
+});
+
+menuContainer.addEventListener('menu-search-toggle', (e) => {
+    togglePanel('search', e.detail.active);
+});
+
+menuContainer.addEventListener('menu-data-toggle', (e) => {
+    togglePanel('data', e.detail.active);
+});
+
+menuContainer.addEventListener('menu-settings-toggle', (e) => {
+    togglePanel('settings', e.detail.active);
+});
+
+menuContainer.addEventListener('menu-about-toggle', (e) => {
+    togglePanel('about', e.detail.active);
+});
+
+// Make panels draggable
+function makePanelsDraggable() {
+    Object.values(panels).forEach(panel => {
+        if (!panel) return;
+        
+        const header = panel.querySelector('h1');
+        if (!header) return;
+        
+        // Style header as draggable
+        header.style.cursor = 'move';
+        header.style.userSelect = 'none';
+        
+        let isDragging = false;
+        let currentX = 0;
+        let currentY = 0;
+        let initialX = 0;
+        let initialY = 0;
+        
+        header.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            
+            // Get current panel position
+            const rect = panel.getBoundingClientRect();
+            initialX = e.clientX - rect.left;
+            initialY = e.clientY - rect.top;
+            
+            // Change cursor for entire document
+            document.body.style.cursor = 'move';
+            panel.style.zIndex = '2000'; // Bring to front
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            
+            e.preventDefault();
+            
+            currentX = e.clientX - initialX;
+            currentY = e.clientY - initialY;
+            
+            // Keep panel within viewport bounds
+            const maxX = window.innerWidth - panel.offsetWidth;
+            const maxY = window.innerHeight - panel.offsetHeight;
+            
+            currentX = Math.max(0, Math.min(currentX, maxX));
+            currentY = Math.max(0, Math.min(currentY, maxY));
+            
+            // Update panel position
+            panel.style.left = currentX + 'px';
+            panel.style.top = currentY + 'px';
+            panel.style.right = 'auto'; // Override CSS positioning
+            panel.style.bottom = 'auto';
+        });
+        
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                document.body.style.cursor = 'default';
+                panel.style.zIndex = '1000'; // Reset z-index
+            }
+        });
+    });
+}
+
+// Set initial states (all hidden by default)
+Object.values(panels).forEach(panel => {
+    if (panel) panel.style.display = 'none';
+});
+
+makePanelsDraggable();
+
+
+
 
 // ---------- 2D Map handoff (MapLibre) ----------
 const TILE_SIZE = 512;           // WebMercator world size used by MapLibre zoom
@@ -1243,6 +1367,13 @@ const selFillColorRow = document.getElementById('sel-fill-color-row');
 const selFillColorPick = document.getElementById('sel-fill-color');
 const selFillHex = document.getElementById('sel-fill-hex');
 
+// Initialize the country data display
+const countryDataDisplay = new CountryDataDisplay(
+    document.getElementById('propsList'),
+    document.getElementById('propsBox'),
+    document.getElementById('pickedInfo')
+);
+
 // Marker call-out
 const calloutEl = document.getElementById('callout');
 const calloutSvg = document.getElementById('callout-svg');
@@ -1986,6 +2117,8 @@ let last = performance.now();
 // ---------- Init ----------
 await applyTextureMode('day'); modeSel.value = 'day';
 
+
+/*
 // ---------- Data Explorer logic ----------
 function showPicked(latDeg, lonDeg, country) {
 	const latTxt = formatLat(latDeg);
@@ -2034,6 +2167,31 @@ function showPicked(latDeg, lonDeg, country) {
 	lastSelectedCountry = country || null;
 	applySelectionStyling();
 }
+*/
+
+async function showPicked(latDeg, lonDeg, country) {
+	const selectedCountry = await countryDataDisplay.showPicked(latDeg, lonDeg, country);
+    
+    // The rest of your original showPicked function logic
+    // Show an edge callout for this selection
+    const title = country ? `${country.name}${country.iso3 ? ` (${country.iso3})` : ''}` : 'Selected location';
+    const lines = [`${formatLat(latDeg)}, ${formatLon(lonDeg)}`];
+    Callout.show({ lat: latDeg, lon: lonDeg, title, lines });
+
+    if (country) {
+        highlightCountry(country);
+    } else {
+        clearSelectedBorders();
+    }
+
+    lastSelectedCountry = country || null;
+    applySelectionStyling();
+    
+    return selectedCountry;
+}
+
+
+
 
 function countryAtLonLat(lonDeg, latDeg) {
 	if (!COUNTRY_INDEX) return null;

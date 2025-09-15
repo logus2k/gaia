@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Earth Globe - Menu Demo</title>
+    
+    <!-- FontAwesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <!-- Menu Styles -->
+    <link rel="stylesheet" href="./style/menu.css">
+    
+    <style>
+        /* Demo Page Styling */
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Courier New', monospace;
+            background: #000000;
+            color: #00FF41;
+            min-height: 100vh;
+        }
+        
+        .demo-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        .controls-panel {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 255, 65, 0.3);
+            font-size: 12px;
+        }
+        
+        .controls-panel h4 {
+            margin: 0 0 10px 0;
+            color: #FF8C00;
+        }
+        
+        .control-group {
+            margin: 10px 0;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .control-group select {
+            width: 100%;
+            padding: 5px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(0, 255, 65, 0.3);
+            color: #00FF41;
+            border-radius: 4px;
+        }
+        
+        @media (max-width: 768px) {
+            .controls-panel {
+                position: static;
+                margin: 10px;
+                max-width: none;
+            }
+            
+            .demo-container {
+                overflow-y: auto;
+                height: auto;
+                min-height: 100vh;
+                padding: 20px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container" id="globe-app">
+        <!-- Menu will be injected here -->
+        <div id="menu-container"></div>
+        
+        <!-- Controls Panel -->
+        <div class="controls-panel">
+            <h4>Menu Controls</h4>
+            <div class="control-group">
+                <label>Position:</label>
+                <select id="position-select">
+                    <option value="top-right">Top Right</option>
+                    <option value="top-left">Top Left</option>
+                    <option value="bottom-right">Bottom Right</option>
+                    <option value="bottom-left">Bottom Left</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Layout:</label>
+                <select id="layout-select">
+                    <option value="horizontal">Horizontal</option>
+                    <option value="vertical">Vertical</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Menu JavaScript Module -->
+    <script type="module">
+        import { MenuController } from './script/menu.js';
+        
+        // Initialize the menu
+        const menu = new MenuController({
+            targetElementId: 'menu-container',
+            position: 'top-right',
+            layout: 'horizontal',
+            iconSize: 40,
+            margin: 20
+        });
+        
+        // Event listeners for menu toggles
+        const menuContainer = document.getElementById('menu-container');
+        
+        menuContainer.addEventListener('menu-assistant-toggle', (e) => {
+            console.log('Assistant panel:', e.detail.active ? 'SHOW' : 'HIDE');
+        });
+        
+        menuContainer.addEventListener('menu-search-toggle', (e) => {
+            console.log('Search panel:', e.detail.active ? 'SHOW' : 'HIDE');
+        });
+        
+        menuContainer.addEventListener('menu-data-toggle', (e) => {
+            console.log('Data panel:', e.detail.active ? 'SHOW' : 'HIDE');
+        });
+        
+        menuContainer.addEventListener('menu-settings-toggle', (e) => {
+            console.log('Settings panel:', e.detail.active ? 'SHOW' : 'HIDE');
+        });
+        
+        menuContainer.addEventListener('menu-about-toggle', (e) => {
+            console.log('About panel:', e.detail.active ? 'SHOW' : 'HIDE');
+        });
+        
+        // Control panel event listeners
+        document.getElementById('position-select').addEventListener('change', (e) => {
+            menu.setPosition(e.target.value);
+        });
+        
+        document.getElementById('layout-select').addEventListener('change', (e) => {
+            menu.setLayout(e.target.value);
+        });
+        
+        // Make menu available globally for debugging
+        window.globeMenu = menu;
+        
+        console.log('3D Earth Globe Menu initialized');
+        console.log('Available methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(menu)));
+    </script>
+</body>
+</html>
