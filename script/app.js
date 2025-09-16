@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { PanelManager } from '../script/panel-manager.js';
+import { MenuManager } from '../script/menu.manager.js';
 import { OrbitControls } from "../library/OrbitControls.js";
 import { SunCalcUTC } from "../script/sunset.js";
 import { MiniGlobeOverlay } from "../script/mini.globe.js";
@@ -28,20 +28,7 @@ const SETTINGS = {
 };
 
 // Initialize menu with default settings
-const panelManager = new PanelManager();
-
-// Custom configuration
-/*
-const panelManager = new PanelManager({
-	menuPosition: 'top-left',
-	menuLayout: 'vertical',
-	menuIconSize: 50,
-	initialVisibility: {
-		settings: true,  // Show settings panel by default
-		data: true       // Show data panel by default
-	}
-});
-*/
+const menuManager = new MenuManager();
 
 // ---------- 2D Map handoff (MapLibre) ----------
 const TILE_SIZE = 512;           // WebMercator world size used by MapLibre zoom

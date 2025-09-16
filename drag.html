@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Moveable Drag Example</title>
+  <style>
+    #draggable {
+      width: 100px;
+      height: 100px;
+      background: royalblue;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: absolute;
+      top: 100px;
+      left: 100px;
+      cursor: grab;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="draggable">Drag me</div>
+
+  <!-- Load the Moveable library -->
+  <script src="./library/moveable.min.js"></script>
+  <script>
+    const target = document.getElementById("draggable");
+
+    const moveable = new Moveable(document.body, {
+      target: target,
+      draggable: true,
+      origin: false
+    });
+
+    moveable.on("drag", ({ target, transform }) => {
+      target.style.transform = transform;
+    });
+
+  </script>
+</body>
+</html>

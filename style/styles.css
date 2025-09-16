@@ -14,6 +14,12 @@ body {
     background: #000;
 }
 
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
 canvas {
     display: block;
     touch-action: none;
@@ -248,13 +254,15 @@ input[type="search"] {
 
 /* 2D map overlay */
 #map2d {
-  position: fixed;
-  inset: 0;
-  display: none;
-  z-index: 0; /* above HUD/canvas */
+    position: fixed;
+    inset: 0;
+    display: none;
+    z-index: 0;
+    /* above HUD/canvas */
 }
+
 #map2d.visible {
-  display: block;
+    display: block;
 }
 
 .props {

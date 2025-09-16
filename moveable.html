@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moveable.js Example</title>
+
+    <script type="text/javascript" src="./library/moveable.min.js"></script>
+
+    <style>
+        .target {
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            /* Use a single transform property for all movements */
+            transform: translate(0px, 0px);
+            background: #4A90E2;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: sans-serif;
+            font-size: 20px;
+            cursor: move;
+        }
+    </style>
+
+</head>
+
+<body>
+    <div class="target">
+        Drag me!
+    </div>
+
+    <script>
+        // The ES6 JavaScript code for Moveable.js
+        const moveable = new Moveable(document.body, {
+            target: document.querySelector(".target"),
+            // If the container is null, the position is fixed. (default: parentElement(document.body))
+            container: document.body,
+            draggable: true,
+            resizable: true,
+            scalable: true,
+            rotatable: true,
+            warpable: true,
+            // Enabling pinchable lets you use events that
+            // can be used in draggable, resizable, scalable, and rotateable.
+            pinchable: true, // ["resizable", "scalable", "rotatable"]
+            origin: true,
+            keepRatio: true,
+            // Resize, Scale Events at edges.
+            edge: false,
+            throttleDrag: 0,
+            throttleResize: 0,
+            throttleScale: 0,
+            throttleRotate: 0,
+            dragArea: false, // Disable dragging area
+            hideDefaultLines: true, // Hide default dragging marks
+        });
+
+        /* draggable */
+        moveable.on("dragStart", ({ target, clientX, clientY }) => {
+            console.log("onDragStart", target);
+        }).on("drag", ({
+            target, transform,
+            left, top, right, bottom,
+            beforeDelta, beforeDist, delta, dist,
+            clientX, clientY,
+        }) => {
+            console.log("onDrag left, top", left, top);
+            // This is the key change: update the transform property instead of left/top.
+            target.style.transform = transform;
+            // The original code tried to set left/top, which often conflicts with the transform.
+            // target.style.left = `${left}px`;
+            // target.style.top = `${top}px`;
+        }).on("dragEnd", ({ target, isDrag, clientX, clientY }) => {
+            console.log("onDragEnd", target, isDrag);
+        });
+
+        /* resizable */
+        moveable.on("resizeStart", ({ target, clientX, clientY }) => {
+            console.log("onResizeStart", target);
+        }).on("resize", ({ target, width, height, dist, delta, clientX, clientY }) => {
+            console.log("onResize", target);
+            delta[0] && (target.style.width = `${width}px`);
+            delta[1] && (target.style.height = `${height}px`);
+        }).on("resizeEnd", ({ target, isDrag, clientX, clientY }) => {
+            console.log("onResizeEnd", target, isDrag);
+        });
+
+        /* scalable */
+        moveable.on("scaleStart", ({ target, clientX, clientY }) => {
+            console.log("onScaleStart", target);
+        }).on("scale", ({
+            target, scale, dist, delta, transform, clientX, clientY,
+        }) => {
+            console.log("onScale scale", scale);
+            target.style.transform = transform;
+        }).on("scaleEnd", ({ target, isDrag, clientX, clientY }) => {
+            console.log("onScaleEnd", target, isDrag);
+        });
+
+        /* rotatable */
+        moveable.on("rotateStart", ({ target, clientX, clientY }) => {
+            console.log("onRotateStart", target);
+        }).on("rotate", ({ target, beforeDelta, delta, dist, transform, clientX, clientY }) => {
+            console.log("onRotate", dist);
+            target.style.transform = transform;
+        }).on("rotateEnd", ({ target, isDrag, clientX, clientY }) => {
+            console.log("onRotateEnd", target, isDrag);
+        });
+
+        /* warpable */
+        let matrix = [
+            1, 0, 0, 0,
+            0, 1, 0, 0,
+            0, 0, 1, 0,
+            0, 0, 0, 1,
+        ];
+        moveable.on("warpStart", ({ target, clientX, clientY }) => {
+            console.log("onWarpStart", target);
+        }).on("warp", ({
+            target,
+            clientX,
+            clientY,
+            delta,
+            dist,
+            multiply,
+            transform,
+        }) => {
+            console.log("onWarp", target);
+            matrix = multiply(matrix, delta);
+            target.style.transform = `matrix3d(${matrix.join(",")})`;
+        }).on("warpEnd", ({ target, isDrag, clientX, clientY }) => {
+            console.log("onWarpEnd", target, isDrag);
+        });
+
+        /* pinchable */
+        moveable.on("pinchStart", ({ target, clientX, clientY }) => {
+            console.log("onPinchStart");
+        }).on("pinch", ({ target, clientX, clientY, datas }) => {
+            console.log("onPinch");
+        }).on("pinchEnd", ({ isDrag, target, clientX, clientY, datas }) => {
+            console.log("onPinchEnd");
+        });
+    </script>
+</body>
+
+</html>
