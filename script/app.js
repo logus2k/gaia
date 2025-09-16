@@ -1254,7 +1254,7 @@ const globeColorPick = document.getElementById('globeColorPick');
 const globeHexInput = document.getElementById('globeHex');
 const chkStarsMotion = document.getElementById('toggle-stars-motion');
 const chkClouds = document.getElementById('toggle-clouds');
-/* cloudsModeSel removed */
+
 const cloudsAdditiveChk = document.getElementById('clouds-additive');
 const chkAtmo = document.getElementById('toggle-atmo');
 const atmoColorRow = document.getElementById('atmoColorRow');
@@ -1272,7 +1272,7 @@ const graticuleHex = document.getElementById('graticuleHex');
 const chkLighting = document.getElementById('toggle-lighting');
 const chkStars = document.getElementById('toggle-stars');
 const starsControls = document.getElementById('stars-controls');
-/* chkStarsReal removed */
+
 const skyBright = document.getElementById('skyBright');
 const speedInput = document.getElementById('speed');
 const speedReadout = document.getElementById('speed-readout');
@@ -1281,8 +1281,8 @@ const sunTimeInput = document.getElementById('sunTime');
 const sunReadout = document.getElementById('sun-readout');
 const chkView = document.getElementById('toggle-view-readout');
 const viewRow = document.getElementById('view-readout-row');
-const viewCenterEl = document.getElementById('view-center');
-const viewRollEl = document.getElementById('view-roll');
+//const viewCenterEl = document.getElementById('view-center');
+//const viewRollEl = document.getElementById('view-roll');
 
 // Data Explorer refs
 const searchBox = document.getElementById('searchBox');
@@ -1395,9 +1395,9 @@ graticuleHex.addEventListener('input', () => {
 
 // Clouds UI
 chkClouds.addEventListener('change', () => { clouds.visible = chkClouds.checked; });
-/* cloudsModeSel listener removed */
+clouds.visible = chkClouds.checked;
+
 cloudsAdditiveChk.addEventListener('change', () => {
-	// Checkbox toggles UNLIT vs LIT; we keep “always white” when checked
 	const useUnlit = cloudsAdditiveChk.checked;
 	const mat = useUnlit ? cloudsMatUnlit : cloudsMatLit;
 	mat.blending = THREE.NormalBlending;
@@ -1914,6 +1914,8 @@ function computeNorthUpErrorDeg() {
 	if (a.lengthSq() < 1e-12 || screenUpW.lengthSq() < 1e-12) return 0;
 	return deg(signedAngleAroundAxis(a, screenUpW, view));
 }
+
+/*
 function updateViewReadout() {
 	if (viewRow.classList.contains('hidden')) return;
 	const hit = raySphereCenterPoint();
@@ -1923,6 +1925,7 @@ function updateViewReadout() {
 	const rollErr = computeNorthUpErrorDeg();
 	viewRollEl.textContent = `North-up error: ${rollErr >= 0 ? '+' : ''}${rollErr.toFixed(1)}°`;
 }
+*/
 
 // ---------- Resize ----------
 window.addEventListener('resize', () => {
@@ -2041,7 +2044,7 @@ let last = performance.now();
 	Callout.update();
 
 	applySkyBrightness();
-	updateViewReadout();
+	// updateViewReadout();
 
 	updateSunFromSolarTimeOncePerSecond();
 

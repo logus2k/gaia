@@ -28,12 +28,30 @@ body {
 .logo {
     position: fixed;
     top: 13px;
-    left: 25px;
+    left: 20px;
     z-index: 9000;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
+    pointer-events: none;
+}
+
+/* Only the link (the L) is clickable */
+.logo .logo-link {
+    pointer-events: auto;
+    /* re-enable clicks for the link */
+    display: inline-block;
+    /* click area = icon box only */
+    text-decoration: none;
+    /* no underline */
+}
+
+/* Optional: keyboard focus ring for accessibility */
+.logo .logo-link:focus-visible .logo-icon {
+    outline: 2px solid #FFB000;
+    /* or your green/orange of choice */
+    outline-offset: 2px;
 }
 
 .logo-head {
@@ -57,10 +75,15 @@ body {
     margin-top: 10px;
 }
 
+/* Smooth animation for the icon box + glyph */
+.logo-icon {
+    transition: box-shadow 160ms ease, text-shadow 160ms ease;
+}
+
 .logo.logo-terminal {
-    --primary: #1B5E20;
-    --primary-dark: #0B3D14;
-    --secondary: #33FF33;
+    --primary: #1E3A8A;
+    --primary-dark: #2563EB;
+    --secondary: #081c34;
 }
 
 .logo.logo-terminal .logo-text span {
@@ -107,29 +130,45 @@ canvas {
 }
 
 /* Default positions (adjust to your layout) */
-.hud.settings {
-    top: 150px;
-    right: 12px;
+.hud.assistant {
+    top: auto;
+    left: auto;
+    right: 20px;
+    bottom: 50px;
+    width: 800px;
+    max-width: 1000px;
+    height: 600px;
+    max-height: 600px;
 }
 
 .hud.search {
-    left: 12px;
+    top: 85px;
+    left: 20px;
 }
 
 .hud.data {
-    top: 300px;
-    left: 12px;
+    top: auto;
+    left: auto;
+    left: 20px;
+    bottom: 800px;
 }
 
-.hud.assistant {
-    top: 1000px;
-    right: 12px;
+.hud.settings {
+    top: 85px;
+    right: 20px;
 }
 
+/* Center the About panel */
 .hud.about {
-    top: 1000px;
-    left: 12px;
+    top: 50%;
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    width: 500px;
+    max-width: 500px;
+    transform: translate(-50%, -50%);
 }
+
 
 .hud h1 {
     font-size: 14px;
@@ -142,6 +181,7 @@ canvas {
 /* Animated show/hide (class-based) */
 [id^="hud-"] {
     background: rgba(0, 0, 0, 0.25);
+    color: #666666;
     opacity: 0;
     /* hidden by default */
     visibility: hidden;
@@ -158,8 +198,47 @@ canvas {
 
 /* Hover effect (darker + slightly more solid) */
 [id^="hud-"].visible:hover {
-    background: rgba(0, 0, 0, 0.95);
-    opacity: 0.95;
+    color: #eabc66;
+    background: rgba(8, 10, 24, 0.97);
+    opacity: 0.80;
+}
+
+/* About panel link styling — Terminal Green (dim idle → bright on hover) */
+#hud-about {
+    --link-idle: rgba(51, 255, 51, 0.6);
+    /* faded terminal green (idle) */
+    --link: #33FF33;
+    /* bright terminal green */
+    --link-hover: #79FF79;
+    /* optional tint on direct link hover */
+    --link-glow: rgba(51, 255, 51, 0.35);
+}
+
+#hud-about a {
+    color: var(--link-idle);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(51, 255, 51, 0.2);
+    transition: color .2s ease, border-color .2s ease, text-shadow .2s ease;
+}
+
+/* brighten when the PANEL is hovered (no need to hover the link) */
+#hud-about:hover a {
+    color: var(--link);
+    border-bottom-color: var(--link);
+    text-shadow: 0 0 6px var(--link-glow);
+}
+
+/* even brighter tint when the LINK itself is hovered/focused */
+#hud-about a:hover,
+#hud-about a:focus-visible {
+    color: var(--link-hover);
+    border-bottom-color: var(--link-hover);
+    text-shadow: 0 0 6px var(--link-glow);
+}
+
+#hud-about a:focus-visible {
+    outline: 2px solid var(--link);
+    outline-offset: 2px;
 }
 
 /* ───────────────────────────── HUD Controls/UI ────────────────────────── */

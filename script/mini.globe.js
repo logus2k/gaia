@@ -33,10 +33,9 @@ export class MiniGlobeOverlay {
         this.canvas.width = this.size;
         this.canvas.height = this.size;
         this.canvas.style.position = 'fixed';
-        this.canvas.style.bottom = '20px';
+        this.canvas.style.bottom = '10px';
         this.canvas.style.left = '15px';
         this.canvas.style.zIndex = '10000';
-        this.canvas.style.borderRadius = '8px';
         this.canvas.style.background = 'transparent';
         document.body.appendChild(this.canvas);
     }

@@ -19,8 +19,10 @@
 	<!-- Site logo -->
 	<div class="logo logo-terminal">
 		<div class="logo-head">
-			<div class="logo-icon">L</div>
-			<div class="logo-badge"><img src="./image/gaia_logo.png" /></div>
+			<a class="logo-link" href="https://www.logus2k.com" aria-label="Go to Logus2k homepage">
+				<div class="logo-icon">L</div>
+			</a>
+			<div class="logo-badge"><img src="./image/gaia_logo.png" alt=""></div>
 		</div>
 	</div>
 
@@ -49,12 +51,12 @@
 			</div>
 
 			<!-- Interaction -->
-			<div class="row"><label><input id="toggle-stars-motion" type="checkbox" checked />Show stars
-					movement</label></div>
+			<div class="row"><label><input id="toggle-stars-motion" type="checkbox" checked />Show stars movement</label></div>
 
 			<!-- View readout -->
 			<div class="row"><label><input id="toggle-view-readout" type="checkbox" checked />Show readout</label>
 			</div>
+			<!--
 			<div class="row" id="view-readout-row">
 				<div>Center</div>
 				<div class="readout" style="text-align:left;">
@@ -62,6 +64,7 @@
 					<div id="view-roll" style="opacity:.8;">—</div>
 				</div>
 			</div>
+			-->
 
 			<!-- Textures -->
 			<div class="row">
@@ -89,24 +92,22 @@
 			</div>
 
 			<!-- Layers -->
-			<div class="row"><label><input id="toggle-clouds" type="checkbox" checked /> Show clouds</label></div>
+			<div class="row"><label><input id="toggle-clouds" type="checkbox" />Show clouds</label></div>
 			<!-- clouds mode row removed -->
-			<div class="row"><label><input id="clouds-additive" type="checkbox" checked /> Additive blend
-					(brighter)</label></div>
+			<div class="row"><label><input id="clouds-additive" type="checkbox" checked />Additive blend (brighter)</label></div>
 
-			<div class="row"><label><input id="toggle-atmo" type="checkbox" checked /> Atmosphere glow</label></div>
+			<div class="row"><label><input id="toggle-atmo" type="checkbox" checked />Atmosphere glow</label></div>
 			<div class="row" id="atmoColorRow">
 				<label>Atmosphere color</label>
 				<div style="display:flex; gap:8px; align-items:center;">
 					<input id="atmoColorPick" type="color" value="#78b4ff" />
-					<input id="atmoHex" type="text" value="#78B4FFFF"
-						title="#RRGGBBAA (alpha scales glow brightness)" />
+					<input id="atmoHex" type="text" value="#78B4FFFF" title="#RRGGBBAA (alpha scales glow brightness)" />
 				</div>
 			</div>
 
-			<div class="row"><label><input id="toggle-labels" type="checkbox" /> Show labels</label></div>
+			<div class="row"><label><input id="toggle-labels" type="checkbox" />Show labels</label></div>
 
-			<div class="row"><label><input id="toggle-borders" type="checkbox" /> Political borders</label></div>
+			<div class="row"><label><input id="toggle-borders" type="checkbox" />Political borders</label></div>
 			<div class="row hidden" id="bordersColorRow">
 				<label>Borders color</label>
 				<div style="display:flex; gap:8px; align-items:center;">
@@ -115,7 +116,7 @@
 				</div>
 			</div>
 
-			<div class="row"><label><input id="toggle-graticule" type="checkbox" /> Graticule (lat/long)</label></div>
+			<div class="row"><label><input id="toggle-graticule" type="checkbox" />Graticule (lat/long)</label></div>
 			<div class="row hidden" id="graticuleColorRow">
 				<label>Graticule color</label>
 				<div style="display:flex; gap:8px; align-items:center;">
@@ -126,20 +127,19 @@
 			</div>
 
 			<!-- Stars -->
-			<div class="row"><label><input id="toggle-stars" type="checkbox" checked /> Star background</label></div>
+			<div class="row"><label><input id="toggle-stars" type="checkbox" checked />Star background</label></div>
 			<div id="stars-controls">
 				<div class="row" style="margin-top:4px;">
 					<label for="skyBright">Star brightness</label>
 					<div class="readout"><span id="sky-bright-readout">3%</span></div>
 				</div>
 				<input id="skyBright" type="range" min="0" max="1" step="0.01" value="0.03" />
-				<!-- realistic stars checkbox removed -->
 			</div>
 
 			<div class="sep"></div>
 
 			<!-- Lighting -->
-			<div class="row"><label><input id="sunLightingEnabled" type="checkbox" /> Enable sun lighting</label></div>
+			<div class="row"><label><input id="sunLightingEnabled" type="checkbox" />Enable sun lighting</label></div>
 
 			<div class="sep"></div>
 
@@ -158,7 +158,7 @@
 			<h1>Country Selection</h1>
 
 			<div class="row">
-				<label><input id="sel-border-toggle" type="checkbox" checked> Highlight border</label>
+				<label><input id="sel-border-toggle" type="checkbox" checked>Highlight border</label>
 			</div>
 			<div class="row" id="sel-border-color-row">
 				<label>Border color</label>
@@ -169,7 +169,7 @@
 			</div>
 
 			<div class="row">
-				<label><input id="sel-fill-toggle" type="checkbox"> Fill shape</label>
+				<label><input id="sel-fill-toggle" type="checkbox" checked>Fill shape</label>
 			</div>
 			<div class="row hidden" id="sel-fill-color-row">
 				<label>Fill color</label>
@@ -222,7 +222,37 @@
 		<div class="hud about" id="hud-about">
 			<h1>Info</h1>
 			<div class="sep"></div>
-			<div id="aboutPanel" class="mini">Info TBD</div>
+			<div id="aboutPanel" class="mini">
+
+				<p><strong>Developed by</strong> António Cruz<br>
+				<a href="mailto:logus2k@gmail.com">logus2k@gmail.com</a> ·
+				<a href="https://www.logus2k.com" target="_blank" rel="noopener">logus2k.com</a>
+				</p>
+
+				<div class="sep"></div>
+
+				<h3>Credits</h3>
+				<ul class="mini">
+				<li><strong>three.js</strong> (MIT) — Mr.doob & contributors</li>
+				<li><strong>OrbitControls</strong> (three.js examples)</li>
+				<li><strong>Moveable</strong> (MIT) — Daybrush</li>
+				<li><strong>Material Symbols</strong> (Apache-2.0) — Google</li>
+				<li><strong>Roboto</strong> (Apache-2.0) — Google Fonts</li>
+				<li><strong>Natural Earth</strong> (Public Domain) — country borders & graticule</li>
+				<li><strong>NASA Blue Marble / Black Marble 2016</strong> — NASA / NOAA</li>
+				<li><strong>GEBCO_08 Bathymetry/Topography</strong> — GEBCO Compilation Group</li>
+				<li><strong>ESO Sky Background (eso0932a)</strong> — European Southern Observatory</li>
+				</ul>
+
+				<div class="sep"></div>
+
+				<h3>Acknowledgements</h3>
+				<ul class="mini">
+				<li>The three.js community & documentation</li>
+				<li>Natural Earth, NASA, NOAA, GEBCO, and ESO for open datasets</li>
+				</ul>
+
+			</div>
 		</div>
 
 	</div>
