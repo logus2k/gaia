@@ -14,11 +14,67 @@ body {
     background: #000;
 }
 
+.maplibregl-control-container {
+    display: none !important;
+}
+
+/* ───────────────────────────────── Logo ───────────────────────────────── */
+
+.logo,
+.logo * {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
 .logo {
+    position: fixed;
+    top: 13px;
+    left: 25px;
+    z-index: 9000;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.logo-head {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
+    white-space: nowrap;
 }
+
+.logo-icon {
+    width: 34px;
+    height: 34px;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: #fff;
+    margin-top: 10px;
+}
+
+.logo.logo-terminal {
+    --primary: #1B5E20;
+    --primary-dark: #0B3D14;
+    --secondary: #33FF33;
+}
+
+.logo.logo-terminal .logo-text span {
+    color: #FFB000;
+}
+
+.logo-badge img {
+    display: block;
+    max-width: 75px;
+    height: auto;
+}
+
+
+/* ───────────────────────────── Canvas / Overlay ───────────────────────── */
 
 canvas {
     display: block;
@@ -31,6 +87,8 @@ canvas {
     pointer-events: none;
     font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
+
+/* ───────────────────────────────── HUD Panels ─────────────────────────── */
 
 .hud {
     position: absolute;
@@ -48,6 +106,7 @@ canvas {
     font-family: Verdana, Geneva, Tahoma, sans-serif;
 }
 
+/* Default positions (adjust to your layout) */
 .hud.settings {
     top: 150px;
     right: 12px;
@@ -76,29 +135,34 @@ canvas {
     font-size: 14px;
     margin: 0 0 8px 0;
     font-weight: 600;
+    cursor: move;
+    /* indicate drag handle */
 }
 
-/* Base style for all HUD panels */
+/* Animated show/hide (class-based) */
 [id^="hud-"] {
-  background: rgba(0, 0, 0, 0.25);
-  opacity: 0;               /* hidden by default */
-  visibility: hidden;
-  pointer-events: none;
-  transition: background 0.55s ease, opacity 0.55s ease, visibility 0.55s ease;
+    background: rgba(0, 0, 0, 0.25);
+    opacity: 0;
+    /* hidden by default */
+    visibility: hidden;
+    pointer-events: none;
+    transition: background 0.55s ease, opacity 0.55s ease, visibility 0.55s ease;
 }
 
 /* Shown state (fades in) */
 [id^="hud-"].visible {
-  opacity: 0.9;             /* feel free to tweak to taste */
-  visibility: visible;
-  pointer-events: auto;
+    opacity: 0.9;
+    visibility: visible;
+    pointer-events: auto;
 }
 
-/* Hover effect (your values) */
+/* Hover effect (darker + slightly more solid) */
 [id^="hud-"].visible:hover {
-  background: rgba(0, 0, 0, 0.95);
-  opacity: 0.95;
+    background: rgba(0, 0, 0, 0.95);
+    opacity: 0.95;
 }
+
+/* ───────────────────────────── HUD Controls/UI ────────────────────────── */
 
 .row {
     display: flex;
@@ -191,6 +255,8 @@ input[type="search"] {
     transform: translateY(1px);
 }
 
+/* ───────────────────────────── Markers / Explorer ─────────────────────── */
+
 #markers-root {
     position: absolute;
     inset: 0;
@@ -274,19 +340,19 @@ input[type="search"] {
     margin-top: 4px;
 }
 
-/* 2D map overlay */
+/* 2D map overlay (toggle via .visible) */
 #map2d {
     position: fixed;
     inset: 0;
     display: none;
     z-index: 0;
-    /* above HUD/canvas */
 }
 
 #map2d.visible {
     display: block;
 }
 
+/* Scroll visuals for property panels */
 .props {
     overflow: auto;
     padding: 6px 8px;

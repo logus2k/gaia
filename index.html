@@ -8,19 +8,21 @@
 	<link rel="stylesheet" href="./style/menu.css" />
 	<link rel="stylesheet" href="./style/maplibre-gl.css" />
 	<link rel="icon" href="data:,">
-    
+
 	<script type="importmap">{ "imports": { "three": "./library/three.module.min.js" } }</script>
 
-	<script type="text/javascript" src="./library/moveable.min.js"></script>	
+	<script type="text/javascript" src="./library/moveable.min.js"></script>
 </head>
 
 <body>
 
 	<!-- Site logo -->
-	<div class="logo">
-		<div class="logo-icon">L</div>
-		<div class="logo-text">logus<span>2k</span></div>
-    </div>
+	<div class="logo logo-terminal">
+		<div class="logo-head">
+			<div class="logo-icon">L</div>
+			<div class="logo-badge"><img src="./image/gaia_logo.png" /></div>
+		</div>
+	</div>
 
 	<!-- 2D map overlay (hidden until handoff) -->
 	<div id="map2d"></div>
@@ -47,7 +49,8 @@
 			</div>
 
 			<!-- Interaction -->
-			<div class="row"><label><input id="toggle-stars-motion" type="checkbox" checked />Show stars movement</label></div>
+			<div class="row"><label><input id="toggle-stars-motion" type="checkbox" checked />Show stars
+					movement</label></div>
 
 			<!-- View readout -->
 			<div class="row"><label><input id="toggle-view-readout" type="checkbox" checked />Show readout</label>
@@ -88,7 +91,8 @@
 			<!-- Layers -->
 			<div class="row"><label><input id="toggle-clouds" type="checkbox" checked /> Show clouds</label></div>
 			<!-- clouds mode row removed -->
-			<div class="row"><label><input id="clouds-additive" type="checkbox" checked /> Additive blend (brighter)</label></div>
+			<div class="row"><label><input id="clouds-additive" type="checkbox" checked /> Additive blend
+					(brighter)</label></div>
 
 			<div class="row"><label><input id="toggle-atmo" type="checkbox" checked /> Atmosphere glow</label></div>
 			<div class="row" id="atmoColorRow">
@@ -151,7 +155,7 @@
 
 			<div class="sep"></div>
 
-			<h1>Selection styling</h1>
+			<h1>Country Selection</h1>
 
 			<div class="row">
 				<label><input id="sel-border-toggle" type="checkbox" checked> Highlight border</label>
@@ -219,14 +223,15 @@
 			<h1>Info</h1>
 			<div class="sep"></div>
 			<div id="aboutPanel" class="mini">Info TBD</div>
-		</div>		
+		</div>
 
 	</div>
 
 	<div id="markers-root"></div>
 
 	<!-- Leader line + callout panel -->
-	<svg id="callout-svg" style="position:absolute; inset:0; pointer-events:none; z-index:5;" width="0"	height="0"></svg>
+	<svg id="callout-svg" style="position:absolute; inset:0; pointer-events:none; z-index:5;" width="0"
+		height="0"></svg>
 
 	<div id="callout" class="hud left" style="position:absolute; display:none; z-index:6; max-width:210px;"></div>
 
