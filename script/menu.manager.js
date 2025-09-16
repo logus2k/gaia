@@ -2,13 +2,13 @@
 // Usage: const menuManager = new MenuManager();
 // Custom configuration
 const menuManager = new MenuManager({
-	menuPosition: 'top-left',
-	menuLayout: 'vertical',
-	menuIconSize: 50,
-	initialVisibility: {
-		settings: true,  // Show settings panel by default
-		data: true       // Show data panel by default
-	}
+    menuPosition: 'top-left',
+    menuLayout: 'vertical',
+    menuIconSize: 50,
+    initialVisibility: {
+        settings: true,  // Show settings panel by default
+        data: true       // Show data panel by default
+    }
 });
 */
 
@@ -100,7 +100,6 @@ export class MenuManager {
             if (!getComputedStyle(el).position || getComputedStyle(el).position === 'static') {
                 el.style.position = 'absolute';
             }
-            el.style.display = 'none';
 
             if (!el.querySelector('.pm-close')) {
                 const close = document.createElement('button');
@@ -146,13 +145,18 @@ export class MenuManager {
     #setPanelDisplay(id, show) {
         const p = this.panels[id];
         if (!p) return;
-        p.style.display = show ? 'block' : 'none';
-        if (show) { this.topZ += 1; p.style.zIndex = String(this.topZ); }
+        if (show) {
+            p.classList.add('visible');
+            this.topZ += 1;
+            p.style.zIndex = String(this.topZ);
+        } else {
+            p.classList.remove('visible');
+        }
     }
 
     #isPanelShown(id) {
         const p = this.panels[id];
-        return !!p && getComputedStyle(p).display !== 'none';
+        return !!p && p.classList.contains('visible');
     }
 
     #syncMenuBtn(id, active) {

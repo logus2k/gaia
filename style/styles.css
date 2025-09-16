@@ -78,6 +78,28 @@ canvas {
     font-weight: 600;
 }
 
+/* Base style for all HUD panels */
+[id^="hud-"] {
+  background: rgba(0, 0, 0, 0.25);
+  opacity: 0;               /* hidden by default */
+  visibility: hidden;
+  pointer-events: none;
+  transition: background 0.55s ease, opacity 0.55s ease, visibility 0.55s ease;
+}
+
+/* Shown state (fades in) */
+[id^="hud-"].visible {
+  opacity: 0.9;             /* feel free to tweak to taste */
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* Hover effect (your values) */
+[id^="hud-"].visible:hover {
+  background: rgba(0, 0, 0, 0.95);
+  opacity: 0.95;
+}
+
 .row {
     display: flex;
     align-items: center;
