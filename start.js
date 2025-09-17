@@ -1,11 +1,10 @@
-// Add this to your start.js file:
-
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 
 // Import the NE10M Data Handler
 import NE10MHandler from "./script/ne10m.handler.js";
+
 
 const app = express();
 const PORT = 6678;
@@ -20,7 +19,6 @@ const ne10mHandler = new NE10MHandler();
 // Serve everything under start.js root
 app.use(express.static(__dirname));
 
-// Add NE10M data API endpoints
 app.get('/api/health', (req, res) => {
   try {
     const result = ne10mHandler.healthCheck();
@@ -39,16 +37,25 @@ app.get('/api/search', (req, res) => {
   }
 });
 
-app.get('/api/location/:id', (req, res) => {
+// Single endpoint for location details using NE_ID
+app.get('/api/location/:id', async (req, res) => {
   try {
-    const result = ne10mHandler.getLocationDetails(req, res);
+    const result = await ne10mHandler.getLocationDetails(req);
     res.json(result);
   } catch (error) {
-    res.status(error.status || 500).json(error);
+    console.error('Error in getLocationDetails:', error);
+    if (error.status) {
+      res.status(error.status).json(error);
+    } else {
+      res.status(500).json({
+        status: 500,
+        error: 'Internal server error',
+        message: error.message || 'An unexpected error occurred'
+      });
+    }
   }
 });
 
-// ✅ ADD THIS: Serve the search index file
 app.get('/api/search-index', (req, res) => {
   const searchIndexPath = path.join(__dirname, './data/ne_10m/index/search.index.json');
   res.sendFile(searchIndexPath, (err) => {

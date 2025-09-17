@@ -2279,9 +2279,9 @@ function renderSearchResults(items, coords) {
     items.forEach(item => {
         const div = document.createElement('div');
         div.className = 'search-result-item';
-        div.innerHTML = `${item.name} [${item.countryCode}] <i>(${item.type === 'country' ? 'Country' : 'Place'})</i>`;
+        div.innerHTML = `${item.name} [${item.countryCode}]<i>(${item.type === 'country' ? 'Country' : 'Place'})</i>`;
         
-        // Add click handler to load full details (this triggers the second API call)
+        // Add click handler to load full details (triggers a second API call for the chosen location details)
         div.addEventListener('click', () => {
             handleLocationSelection(item.id);
         });
@@ -2346,7 +2346,7 @@ function renderLocationDetails(locationDetails) {
     // Example of how to use the detailed data:
     
     // 1. Show in info panel
-    pickedInfo.textContent = `${locationDetails.name} (${locationDetails.countryCode})`;
+    pickedInfo.textContent = `${locationDetails.ne_10m_countries.properties.NAME} (${locationDetails.ne_10m_countries.properties.ISO_A3})`;
     
     // 2. Populate properties list
     propsBox.classList.remove('hidden');
@@ -2408,20 +2408,32 @@ async function handleLocationSelection(locationId) {
         // Fetch detailed location information from the second API call
         const locationDetails = await searchClient.getLocationDetails(locationId);
 
-		// animateCenterOnGlobe(coords.lat, coords.lon);
-		// showPicked(coords.lat, coords.lon, countryAtLonLat(coords.lon, coords.lat));
-       
         /*
 		// Hide loading state
         searchStatus.classList.remove('loading');
         searchStatus.textContent = 'Details loaded';
 		*/
-        
+
         // Use the detailed data (render on map, show info panel, etc.)
-        renderLocationDetails(locationDetails);
-        
-        // Optional: Update the picked info display
-        pickedInfo.textContent = `Selected: ${locationDetails.name} (${locationDetails.countryCode})`;
+        // renderLocationDetails(locationDetails);
+
+		let latitude, longitude;
+
+		if (locationDetails.populated_places) {
+			pickedInfo.textContent = `Selected: ${locationDetails.populated_places.properties.NAME} (${locationDetails.populated_places.properties.ADM0_A3})`;
+
+			latitude = locationDetails.populated_places.properties.LATITUDE;
+			longitude = locationDetails.populated_places.properties.LONGITUDE;
+		}
+		else if (locationDetails.ne_10m_countries) {
+			pickedInfo.textContent = `Selected: ${locationDetails.ne_10m_countries.properties.NAME} (${locationDetails.ne_10m_countries.properties.ADM0_A3})`;
+
+			latitude = locationDetails.ne_10m_countries.properties.LABEL_Y;
+			longitude = locationDetails.ne_10m_countries.properties.LABEL_X;
+		}
+
+		animateCenterOnGlobe(latitude, longitude);
+		showPicked(latitude, longitude, countryAtLonLat(longitude, latitude));		
         
     } catch (error) {
         console.error('Failed to load location details:', error);

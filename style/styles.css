@@ -409,7 +409,7 @@ input[type="search"] {
 
 .results {
     margin-top: 6px;
-    max-height: 140px;
+    max-height: 400px;
     overflow: auto;
     border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0.12);
