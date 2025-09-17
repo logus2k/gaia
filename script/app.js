@@ -3,7 +3,10 @@ import { MenuManager } from '../script/menu.manager.js';
 import { OrbitControls } from "../library/OrbitControls.js";
 import { SunCalcUTC } from "../script/sunset.js";
 import { MiniGlobeOverlay } from "../script/mini.globe.js";
+import { LocationSearchClient } from "../script/location.search.client.js";
+
 import { CountryDataDisplay } from "../script/country.data.display.js";
+
 
 
 SunCalcUTC.setLongitudeConvention('east');
@@ -872,6 +875,7 @@ function namesFromProps(p) {
 	return Array.from(new Set(cands));
 }
 
+/*
 async function ensureCountryIndex() {
 	if (COUNTRY_INDEX) return COUNTRY_INDEX;
 	const res = await fetch(SETTINGS.bordersGeoJSON);
@@ -912,6 +916,7 @@ async function ensureCountryIndex() {
 	COUNTRY_INDEX = idx;
 	return COUNTRY_INDEX;
 }
+*/
 
 async function loadBorders(url) {
 	// Use index data if already loaded to avoid double fetching
@@ -937,6 +942,7 @@ async function loadBorders(url) {
 	bordersMaterial = new THREE.LineBasicMaterial({ color: pendingBordersColor, transparent: true, opacity: pendingBordersAlpha, depthTest: true, depthWrite: true });
 	const lines = new THREE.LineSegments(geom, bordersMaterial); lines.frustumCulled = false; bordersGroup.add(lines);
 }
+
 function setBordersColorAndAlpha(rgbInt, a01) {
 	pendingBordersColor = rgbInt; pendingBordersAlpha = a01;
 	if (bordersMaterial) { bordersMaterial.color.setHex(rgbInt); bordersMaterial.opacity = a01; bordersMaterial.needsUpdate = true; }
@@ -1238,14 +1244,60 @@ applyCloudsMode();
 // ---------- Ensure sky + country index ----------
 try { await ensureSky(); } catch (e) { console.warn('Sky failed:', e); }
 applySkyBrightness();
+
+
 const searchStatus = document.getElementById('searchStatus');
+
+/*
 try {
 	await ensureCountryIndex();
-	searchStatus.textContent = `Countries indexed: ${COUNTRY_INDEX.length}`;
+	// searchStatus.textContent = `Countries indexed: ${COUNTRY_INDEX.length}`;
 } catch (e) {
 	console.error(e);
 	searchStatus.textContent = `Failed to index countries (see console).`;
 }
+*/
+
+// Initialize the search client
+const searchClient = new LocationSearchClient();
+await searchClient.initialize();
+
+
+/*
+// Search for locations (e.g., in autocomplete)
+function handleSearch(query) {
+    try {
+        const results = searchClient.search(query, { limit: 20 });
+        displaySearchResults(results);
+    } catch (error) {
+        console.error('Search failed:', error);
+    }
+}
+
+// When user selects a location, get full details
+async function handleLocationSelect(locationId) {
+    try {
+        // Show loading state
+        showLoadingIndicator();
+        
+        // Fetch detailed location information
+        const locationDetails = await searchClient.getLocationDetails(locationId);
+        
+        // Use the detailed data (render on map, show info panel, etc.)
+        renderLocationDetails(locationDetails);
+        
+    } catch (error) {
+        console.error('Failed to load location details:', error);
+        showError('Failed to load location details');
+    } finally {
+        hideLoadingIndicator();
+    }
+}
+*/
+
+
+
+
 
 // ---------- HUD refs ----------
 const modeSel = document.getElementById('mode');
@@ -2183,6 +2235,8 @@ function parseQueryToCoords(q) {
 	return null;
 }
 
+
+/*
 function searchCountriesByName(q) {
 	if (!COUNTRY_INDEX) return [];
 	const s = q.trim().toLowerCase();
@@ -2204,54 +2258,184 @@ function searchCountriesByName(q) {
 	out.sort((a, b) => a.name.length - b.name.length || a.name.localeCompare(b.name));
 	return out.slice(0, 20);
 }
+*/
 
 function renderSearchResults(items, coords) {
-	resultsBox.innerHTML = '';
-	if ((items && items.length) || coords) {
-		resultsBox.classList.remove('hidden');
-	} else {
-		resultsBox.classList.add('hidden');
-		return;
-	}
-	if (coords) {
-		const btn = document.createElement('button');
-		btn.textContent = `Go to ${coords.lat.toFixed(4)}°, ${coords.lon.toFixed(4)}°`;
-		btn.addEventListener('click', () => {
-			// animateCenterOnGlobe(coords.lat, coords.lon); // smooth center
-			showPicked(coords.lat, coords.lon, countryAtLonLat(coords.lon, coords.lat));
-		});
-
-		resultsBox.appendChild(btn);
-	}
-	for (const c of (items || [])) {
-		const btn = document.createElement('button');
-		const iso = c.iso3 ? ` (${c.iso3})` : '';
-		btn.textContent = `${c.name}${iso}`;
-		btn.addEventListener('click', () => {
-			const { lat, lon } = c.centroid;
-			// animateCenterOnGlobe(lat, lon); // smooth center for country result
-			// keep current UX: show picked info immediately (no delay)
-			showPicked(lat, lon, c);
-		});
-		resultsBox.appendChild(btn);
-	}
+    // Clear existing results
+    resultsBox.innerHTML = '';
+    
+    if (coords) {
+        // Handle coordinate results (your existing code)
+        // ... 
+        return;
+    }
+    
+    // Handle location search results
+    if (items.length === 0) {
+        resultsBox.innerHTML = '<div class="no-results">No locations found</div>';
+        return;
+    }
+    
+    items.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'search-result-item';
+        div.innerHTML = `${item.name} [${item.countryCode}] <i>(${item.type === 'country' ? 'Country' : 'Place'})</i>`;
+        
+        // Add click handler to load full details (this triggers the second API call)
+        div.addEventListener('click', () => {
+            handleLocationSelection(item.id);
+        });
+        
+        resultsBox.appendChild(div);
+    });
 }
 
-function doSearch() {
-	const q = searchBox.value;
-	const coords = parseQueryToCoords(q);
-	if (coords) {
-		renderSearchResults([], coords);
-		pickedInfo.textContent = `Parsed coordinates: ${formatLat(coords.lat)}, ${formatLon(coords.lon)}`;
-		propsBox.classList.add('hidden'); propsList.innerHTML = '';
-		return;
-	}
-	const items = searchCountriesByName(q);
-	searchStatus.textContent = items.length ? `${items.length} result(s)` : 'No results';
-	renderSearchResults(items, null);
+
+
+// Adapted search function
+async function doSearch() {
+    const q = searchBox.value;
+    
+    // Check if it's coordinates first
+    const coords = parseQueryToCoords(q);
+    if (coords) {
+        renderSearchResults([], coords);
+        pickedInfo.textContent = `Parsed coordinates: ${formatLat(coords.lat)}, ${formatLon(coords.lon)}`;
+        propsBox.classList.add('hidden'); 
+        propsList.innerHTML = '';
+        return;
+    }
+    
+    // Use the new search client for location search
+    try {
+        const items = searchClient.search(q);
+        searchStatus.textContent = items.length ? `${items.length} result(s)` : 'No results';
+        renderSearchResults(items, null);
+    } catch (error) {
+        console.error('Search failed:', error);
+        searchStatus.textContent = 'Search error';
+        renderSearchResults([], null);
+    }
 }
+
+// Handle location selection (when user clicks on a search result)
+/*
+async function handleLocationSelection(locationId) {
+    try {
+        // Show loading state
+        searchStatus.textContent = 'Loading details...';
+        
+        // Fetch detailed location information
+        const locationDetails = await searchClient.getLocationDetails(locationId);
+        
+        // Use the detailed data (render on map, show info panel, etc.)
+        renderLocationDetails(locationDetails);
+        
+    } catch (error) {
+        console.error('Failed to load location details:', error);
+        searchStatus.textContent = 'Failed to load details';
+    }
+}
+*/
+
+// Function to render the detailed location information
+function renderLocationDetails(locationDetails) {
+    // Update your UI with the detailed information
+    console.log('Location details:', locationDetails);
+    
+    // Example of how to use the detailed data:
+    
+    // 1. Show in info panel
+    pickedInfo.textContent = `${locationDetails.name} (${locationDetails.countryCode})`;
+    
+    // 2. Populate properties list
+    propsBox.classList.remove('hidden');
+    propsList.innerHTML = '';
+    
+    // Add key properties to the list
+    const propertiesToShow = [
+        { label: 'Type', value: locationDetails.type },
+        { label: 'Name', value: locationDetails.name },
+        { label: 'Country Code', value: locationDetails.countryCode },
+        { label: 'ID', value: locationDetails.id }
+    ];
+    
+    // Add additional properties based on type
+    if (locationDetails.placeType) {
+        propertiesToShow.push({ label: 'Place Type', value: locationDetails.placeType });
+    }
+    if (locationDetails.population) {
+        propertiesToShow.push({ label: 'Population', value: locationDetails.population.toLocaleString() });
+    }
+    if (locationDetails.adminRegion) {
+        propertiesToShow.push({ label: 'Region', value: locationDetails.adminRegion });
+    }
+    
+    propertiesToShow.forEach(prop => {
+        const li = document.createElement('li');
+        li.innerHTML = `<strong>${prop.label}:</strong> ${prop.value}`;
+        propsList.appendChild(li);
+    });
+    
+    // 3. Focus on location (if you have map functionality)
+    if (locationDetails.geometry) {
+        focusOnLocationGeometry(locationDetails.geometry);
+    }
+}
+
+// Example function to focus on location geometry (you'll need to implement this based on your map)
+function focusOnLocationGeometry(geometry) {
+    // This depends on your 3D globe implementation
+    // Example:
+    if (geometry.type === 'Point') {
+        const [lon, lat] = geometry.coordinates;
+        // flyToLocation(lat, lon); // Your existing function
+    } else if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
+        // Handle country geometry
+        // highlightCountryGeometry(geometry); // Your existing function
+    }
+}
+
+async function handleLocationSelection(locationId) {
+    try {
+        
+		/*
+		// Show loading state
+        searchStatus.textContent = 'Loading details...';
+        searchStatus.classList.add('loading');
+		*/
+        
+        // Fetch detailed location information from the second API call
+        const locationDetails = await searchClient.getLocationDetails(locationId);
+
+		// animateCenterOnGlobe(coords.lat, coords.lon);
+		// showPicked(coords.lat, coords.lon, countryAtLonLat(coords.lon, coords.lat));
+       
+        /*
+		// Hide loading state
+        searchStatus.classList.remove('loading');
+        searchStatus.textContent = 'Details loaded';
+		*/
+        
+        // Use the detailed data (render on map, show info panel, etc.)
+        renderLocationDetails(locationDetails);
+        
+        // Optional: Update the picked info display
+        pickedInfo.textContent = `Selected: ${locationDetails.name} (${locationDetails.countryCode})`;
+        
+    } catch (error) {
+        console.error('Failed to load location details:', error);
+        searchStatus.classList.remove('loading');
+        searchStatus.textContent = 'Failed to load details';
+        
+        // Show user-friendly error
+        pickedInfo.textContent = 'Failed to load location details. Please try again.';
+    }
+}
+
 
 let searchTimer = null;
+
 searchBox.addEventListener('input', () => {
 	clearTimeout(searchTimer); searchTimer = setTimeout(doSearch, 180);
 });

@@ -186,18 +186,16 @@
 			<h1>Search</h1>
 			<div class="sep"></div>
 			<div class="mini">Click the globe to inspect a location</div>
+
 			<div class="row" style="align-items:flex-start;">
 				<div style="flex:1;">
-					<input id="searchBox" type="search" placeholder="lat,lon • or location name" />
-					<div class="hint">Examples: <code>38.7223, -9.1393</code> · <code>Lisbon</code> ·
-						<code>Portugal</code>
-					</div>
+					<input id="searchBox" type="search" placeholder="[latitude, longitude] or [location name]" />
 				</div>
 				<button class="btn" id="btn-search">Go</button>
 			</div>
 
-			<div id="searchStatus" class="mini" style="margin-top:4px; opacity:.8;">Indexing locations...</div>
-			<div class="results hidden" id="searchResults"></div>
+			<div id="searchStatus" class="mini" style="margin-top:4px; opacity:.8;">Examples: <code>38.7223, -9.1393</code> | <code>Lisbon</code> | <code>Portugal</code></div>
+			<div class="results" id="searchResults"></div>
 
 		</div>
 

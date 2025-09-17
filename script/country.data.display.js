@@ -58,7 +58,8 @@ export class CountryDataDisplay {
             basic: {
                 title: 'Basic Information',
                 properties: ['country', 'abbreviation', 'capital', 'city'],
-                hasFlag: true
+                hasFlag: true,
+                showTitle: false
             },
             geography: {
                 title: 'Geography',
@@ -109,7 +110,7 @@ export class CountryDataDisplay {
     }
 
     appendPropertyGroup(groupKey, groupConfig, countryData, container) {
-        const { title, properties, hasFlag } = groupConfig;
+        const { title, properties, hasFlag, showTitle } = groupConfig;
         const hasData = properties.some(prop => countryData[prop] !== undefined && countryData[prop] !== null);
         
         if (!hasData) return;
@@ -150,7 +151,7 @@ export class CountryDataDisplay {
         
         groupHeader.appendChild(titleElement);
         groupHeader.appendChild(toggleButton);
-        
+
         // Add flag to basic group if available
         let flagElement = null;
         if (hasFlag && countryData.flag_base64) {
@@ -181,6 +182,7 @@ export class CountryDataDisplay {
         
         properties.forEach(prop => {
             if (countryData[prop] !== undefined && countryData[prop] !== null) {
+                
                 const dt = document.createElement('dt');
                 dt.textContent = this.formatPropertyName(prop);
                 dt.style.opacity = '0.8';

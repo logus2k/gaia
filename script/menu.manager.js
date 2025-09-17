@@ -66,7 +66,7 @@ export class MenuManager {
         const items = [
             { id: 'assistant', icon: 'smart_toy', label: 'Assistant' },
             { id: 'search', icon: 'search', label: 'Search' },
-            { id: 'data', icon: 'description', label: 'Data' },
+            { id: 'data', icon: 'description', label: 'Data Explorer' },
             { id: 'settings', icon: 'settings', label: 'Settings' },
             { id: 'about', icon: 'info', label: 'About' },
         ];

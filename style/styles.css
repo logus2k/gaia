@@ -81,9 +81,9 @@ body {
 }
 
 .logo.logo-terminal {
-    --primary: #1E3A8A;
+    --primary: #2f57c7;
     --primary-dark: #2563EB;
-    --secondary: #081c34;
+    --secondary: #14447e;
 }
 
 .logo.logo-terminal .logo-text span {
@@ -148,9 +148,9 @@ canvas {
 
 .hud.data {
     top: auto;
-    left: auto;
+    right: auto;
     left: 20px;
-    bottom: 800px;
+    bottom: 250px;
 }
 
 .hud.settings {
@@ -239,6 +239,23 @@ canvas {
 #hud-about a:focus-visible {
     outline: 2px solid var(--link);
     outline-offset: 2px;
+}
+
+.search-result-item {
+    padding: 8px 12px;
+    border-bottom: 0.5px solid #333333;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.search-result-item:hover {
+    background-color: #002008;
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
 }
 
 /* ───────────────────────────── HUD Controls/UI ────────────────────────── */
@@ -375,7 +392,7 @@ input[type="search"] {
 }
 
 .props dl {
-    margin: 0;
+    margin: 10px;
     display: grid;
     grid-template-columns: auto 1fr;
     gap: 6px 10px;
@@ -433,11 +450,8 @@ input[type="search"] {
 
 /* Scroll visuals for property panels */
 .props {
-    overflow: auto;
-    padding: 6px 8px;
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .property-group-header {
