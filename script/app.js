@@ -1607,7 +1607,7 @@ function applySelectionStyling() {
 	paintSelectionToOverlay(lastSelectedCountry, {
 		fillRGBA,
 		strokeRGBA,
-		strokePx: 1  // tweakable; use 3–4 for thicker borders
+		strokePx: 0.5  // tweakable; use 3–4 for thicker borders
 	});
 }
 
@@ -2347,12 +2347,10 @@ function renderLocationDetails(locationDetails) {
     // Update your UI with the detailed information
     console.log('Location details:', locationDetails);
     
-    // Example of how to use the detailed data:
-    
-    // 1. Show in info panel
+    // Show in info panel
     pickedInfo.textContent = `${locationDetails.ne_10m_countries.properties.NAME} (${locationDetails.ne_10m_countries.properties.ISO_A3})`;
     
-    // 2. Populate properties list
+    // Populate properties list
     propsBox.classList.remove('hidden');
     propsList.innerHTML = '';
     
@@ -2381,22 +2379,19 @@ function renderLocationDetails(locationDetails) {
         propsList.appendChild(li);
     });
     
-    // 3. Focus on location (if you have map functionality)
+    // Focus on location
     if (locationDetails.geometry) {
         focusOnLocationGeometry(locationDetails.geometry);
     }
 }
 
-// Example function to focus on location geometry (you'll need to implement this based on your map)
+// Example function to focus on location geometry
 function focusOnLocationGeometry(geometry) {
-    // This depends on your 3D globe implementation
-    // Example:
-    if (geometry.type === 'Point') {
+
+	if (geometry.type === 'Point') {
         const [lon, lat] = geometry.coordinates;
-        // flyToLocation(lat, lon); // Your existing function
     } else if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
-        // Handle country geometry
-        // highlightCountryGeometry(geometry); // Your existing function
+        // highlightCountryGeometry(geometry);
     }
 }
 
@@ -2449,6 +2444,30 @@ async function handleLocationSelection(locationId) {
 		}
 
 		animateCenterOnGlobe(latitude, longitude);
+
+		/*
+		if (locationDetails.ne_10m_countries) {
+			highlightCountry(locationDetails.ne_10m_countries.geometry.coordinates);
+		}
+		*/
+
+		if (locationDetails.ne_10m_countries) {
+			const geom = locationDetails.ne_10m_countries.geometry;
+			const country =
+				geom.type === 'Polygon'
+				? { rings: geom.coordinates, polygons: [geom.coordinates] }
+				: geom.type === 'MultiPolygon'
+				? { rings: geom.coordinates.flat(), polygons: geom.coordinates }
+				: null;
+
+			if (country) {
+				highlightCountry(country);
+				// fillCountry(country);
+				lastSelectedCountry = country || null;
+				applySelectionStyling();				
+			}
+		}
+
 		showPicked(latitude, longitude, locationMarkerText);
         
     } catch (error) {
