@@ -1580,8 +1580,12 @@ async function applyTextureMode(mode) {
 	}
 	setEarthMap(tex);
 }
+
 modeSel.addEventListener('change', () => { applyTextureMode(modeSel.value); });
-await applyTextureMode('day'); modeSel.value = 'day';
+
+await applyTextureMode('day');
+modeSel.value = 'day';
+
 
 // Globe color controls
 globeColorPick.value = hexFromInt(SETTINGS.globeColorRGB);
@@ -2118,7 +2122,11 @@ let last = performance.now();
 
 
 // ---------- Init ----------
-await applyTextureMode('day'); modeSel.value = 'day';
+await applyTextureMode('day');
+modeSel.value = 'day';
+
+// Set startup view to Lisbon
+animateCenterOnGlobe(38.7223, -9.1393, { duration: 0 });
 
 
 /*
