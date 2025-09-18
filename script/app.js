@@ -1149,7 +1149,6 @@ const Callout = (() => {
  		syncSelectionTo2D();		
 	}
 
-
 	function update(force = false) {
 		if (!active) return;
 
