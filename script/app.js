@@ -24,7 +24,7 @@ const SETTINGS = {
 	land_cover_classificationTexture: '../data/land_cover_classification_3600_1800.png',
 	cloudsTexture: '../data/fair_clouds_4k.png',
 	skyTexture: '../data/eso0932a_xl.jpg',
-	bordersGeoJSON: '../data/ne_10m_admin_0_countries.geojson',
+	bordersGeoJSON: '../data/ne_10m/countries/ne_10m_admin_0_countries.geojson',
 	globeColorRGB: 0x0a2a43,
 	globeColorAlpha: 1.0,
 	earthRadiusKm: 6371
@@ -871,11 +871,10 @@ function bboxOfRings(rings) {
 	return { minLat, maxLat, minLon, maxLon };
 }
 function namesFromProps(p) {
-	const cands = [p.ADMIN, p.NAME_LONG, p.NAME, p.BRK_NAME, p.FORMAL_EN, p.ABBREV].filter(Boolean);
+	const cands = [p.NAME, p.ADMIN, p.NAME_LONG, p.NAME, p.BRK_NAME, p.FORMAL_EN, p.ABBREV, p.SOVEREIGNT].filter(Boolean);
 	return Array.from(new Set(cands));
 }
 
-/*
 async function ensureCountryIndex() {
 	if (COUNTRY_INDEX) return COUNTRY_INDEX;
 	const res = await fetch(SETTINGS.bordersGeoJSON);
@@ -916,7 +915,6 @@ async function ensureCountryIndex() {
 	COUNTRY_INDEX = idx;
 	return COUNTRY_INDEX;
 }
-*/
 
 async function loadBorders(url) {
 	// Use index data if already loaded to avoid double fetching
@@ -1002,6 +1000,8 @@ const MarkerManager = (() => {
 	}
 	return { addMarker, removeMarker, clear, update, setVisible };
 })();
+
+
 MarkerManager.addMarker('lisbon', { lat: 38.7223, lon: -9.1393, label: 'Lisbon' });
 MarkerManager.addMarker('newyork', { lat: 40.7128, lon: -74.0060, label: 'New York' });
 MarkerManager.addMarker('tokyo', { lat: 35.6762, lon: 139.6503, label: 'Tokyo' });
@@ -1042,9 +1042,21 @@ const Callout = (() => {
 		return lineEl;
 	}
 
-	function buildHTML({ title: locationText, lines }) {
-		const L = (lines || []).map(s => `<div class="mini">${s}</div>`).join('');
-		return `<h2 style="margin:0 0 6px 0; font-size:14px;">${locationText || 'Selected location'}</h2>${L}`;
+	function buildHTML({ calloutText: calloutText, lines }) {
+		
+		const coordinates = (lines || []).map(s => `<div class="calloutNotes">${s}</div>`).join('');
+
+		const titleSuffix = calloutText.titleSuffix && (calloutText.title && calloutText.titleSuffix !== calloutText.title) ? `<span class="callOutTitleSuffix">, ${calloutText.titleSuffix}</span>` : "";
+		const title = calloutText.title ? `<div class="calloutTitle">${calloutText.title}${titleSuffix}</div>` : "";
+		const subTitle = calloutText.subTitle ? `<div class="calloutSubTitle">${calloutText.subTitle}</div>` : "";
+		const notes = coordinates ? coordinates : "";
+
+		return `
+			${title}
+			<div class="sep"></div>
+			${subTitle}
+			${notes}
+		`;
 	}
 
 	function addCloseButton() {
@@ -1076,9 +1088,9 @@ const Callout = (() => {
 		calloutEl.appendChild(btn);
 	}
 
-	function show({ lat: la, lon: lo, title: locationText, lines }) {
+	function show({ lat: la, lon: lo, calloutText: calloutText, lines }) {
 		lat = la; lon = lo;
-		calloutEl.innerHTML = buildHTML({ title: locationText, lines });
+		calloutEl.innerHTML = buildHTML({ calloutText: calloutText, lines });
 		addCloseButton();
 		calloutEl.style.display = 'block';
 		ensureLine();
@@ -1248,7 +1260,6 @@ applySkyBrightness();
 
 const searchStatus = document.getElementById('searchStatus');
 
-/*
 try {
 	await ensureCountryIndex();
 	// searchStatus.textContent = `Countries indexed: ${COUNTRY_INDEX.length}`;
@@ -1256,7 +1267,6 @@ try {
 	console.error(e);
 	searchStatus.textContent = `Failed to index countries (see console).`;
 }
-*/
 
 // Initialize the search client
 const searchClient = new LocationSearchClient();
@@ -1534,7 +1544,8 @@ function updateSpeedReadout(radPerSec) {
 	speedReadout.textContent = `${sign}${Math.abs(dps).toFixed(2)}°/s · ${dir}`;
 	const v_kms = Math.abs(radPerSec) * SETTINGS.earthRadiusKm, v_kmh = v_kms * 3600;
 	const period = (Math.abs(radPerSec) < 1e-6) ? Infinity : (2 * Math.PI / Math.abs(radPerSec));
-	speedReadoutKm.textContent = `${v_kms.toFixed(3)} km/s · ${Math.round(v_kmh)} km/h · period ${formatPeriod(period)}`;
+	const periodLabel = period && period !== Infinity ?  `· Period ${formatPeriod(period)}` : "";
+	speedReadoutKm.textContent = `${v_kms.toFixed(3)} km/s · ${Math.round(v_kmh)} km/h${periodLabel}`;
 }
 updateSpeedReadout(autorotateSpeed);
 speedInput.addEventListener('input', () => { autorotateSpeed = parseFloat(speedInput.value); updateSpeedReadout(autorotateSpeed); });
@@ -1607,7 +1618,7 @@ function applySelectionStyling() {
 	paintSelectionToOverlay(lastSelectedCountry, {
 		fillRGBA,
 		strokeRGBA,
-		strokePx: 0.5  // tweakable; use 3–4 for thicker borders
+		strokePx: 1  // tweakable; use 3–4 for thicker borders
 	});
 }
 
@@ -1702,6 +1713,7 @@ canvas.addEventListener('pointerdown', (e) => {
 	downX = e.clientX; downY = e.clientY; downT = e.timeStamp;
 	spinVel.set(0, 0, 0);
 });
+
 canvas.addEventListener('pointermove', (e) => {
 	if (!pointerIsDown || !lastArcballVec) return;
 	const v1 = ndcToArcballVec(screenToNDC(e.clientX, e.clientY));
@@ -1757,6 +1769,7 @@ function endPointer(e) {
 	pointerIsDown = false; lastArcballVec = null; try { canvas.releasePointerCapture(e.pointerId); } catch (_) { }
 	if (isClick) handleGlobeClick(e.clientX, e.clientY);
 }
+
 canvas.addEventListener('pointerup', endPointer); canvas.addEventListener('pointercancel', endPointer); canvas.addEventListener('pointerleave', e => { if (pointerIsDown) endPointer(e); });
 
 // ---------- Navigation (mode-aware & fixed) ----------
@@ -2159,7 +2172,7 @@ function showPicked(latDeg, lonDeg, country) {
 }
 */
 
-async function showPicked(latDeg, lonDeg, locationText) {
+async function showPicked(latDeg, lonDeg, calloutText) {
 	
 	// const selectedCountry = await countryDataDisplay.showPicked(latDeg, lonDeg, country);
 
@@ -2167,7 +2180,7 @@ async function showPicked(latDeg, lonDeg, locationText) {
 	// const title = country ? `${country.name}${country.iso3 ? ` (${country.iso3})` : ''}` : 'Selected location';
 
 	const lines = [`${formatLat(latDeg)}, ${formatLon(lonDeg)}`];
-	Callout.show({ lat: latDeg, lon: lonDeg, title: locationText, lines });
+	Callout.show({ lat: latDeg, lon: lonDeg, calloutText: calloutText, lines });
 
 	/*
 	if (country) {
@@ -2202,11 +2215,25 @@ function countryAtLonLat(lonDeg, latDeg) {
 }
 
 function handleGlobeClick(clientX, clientY) {
+
 	const hit = pickLatLonFromClient(clientX, clientY);
-	if (!hit) return;
+	if (!hit) {
+		return;
+	}
+
 	const { latDeg, lonDeg } = hit;
-	const c = countryAtLonLat(lonDeg, latDeg);
-	showPicked(latDeg, lonDeg, c);
+	const country = countryAtLonLat(lonDeg, latDeg);
+
+	if (country) {
+		const countryName = country.feature.properties.ADMIN;
+		const sovereignCountryName = country.feature.properties.SOVEREIGNT;
+		const subRegion = country.feature.properties.SUBREGION;
+
+		showPicked(latDeg, lonDeg, { title: countryName, titleSuffix: sovereignCountryName, subTitle: subRegion});
+
+		lastSelectedCountry = country;
+		applySelectionStyling();
+	}
 }
 
 function sizeCalloutSvgToViewport() {
@@ -2295,7 +2322,6 @@ function renderSearchResults(items, coords) {
 }
 
 
-
 // Adapted search function
 async function doSearch() {
     const q = searchBox.value;
@@ -2321,26 +2347,6 @@ async function doSearch() {
         renderSearchResults([], null);
     }
 }
-
-// Handle location selection (when user clicks on a search result)
-/*
-async function handleLocationSelection(locationId) {
-    try {
-        // Show loading state
-        searchStatus.textContent = 'Loading details...';
-        
-        // Fetch detailed location information
-        const locationDetails = await searchClient.getLocationDetails(locationId);
-        
-        // Use the detailed data (render on map, show info panel, etc.)
-        renderLocationDetails(locationDetails);
-        
-    } catch (error) {
-        console.error('Failed to load location details:', error);
-        searchStatus.textContent = 'Failed to load details';
-    }
-}
-*/
 
 // Function to render the detailed location information
 function renderLocationDetails(locationDetails) {
@@ -2416,7 +2422,7 @@ async function handleLocationSelection(locationId) {
         // Use the detailed data (render on map, show info panel, etc.)
         // renderLocationDetails(locationDetails);
 
-		let latitude, longitude, locationName, countryName, sovereignCountryName;
+		let latitude, longitude, locationName, countryName, sovereignCountryName, subRegion;
 
 		if (locationDetails.populated_places) {
 			// pickedInfo.textContent = `Selected: ${locationDetails.populated_places.properties.NAME} (${locationDetails.populated_places.properties.ADM0_A3})`;
@@ -2426,6 +2432,7 @@ async function handleLocationSelection(locationId) {
 			locationName = locationDetails.populated_places.properties.NAME;
 			countryName = locationDetails.populated_places.properties.ADM0NAME;
 			sovereignCountryName = locationDetails.populated_places.properties.SOV0NAME;
+			subRegion = locationDetails.populated_places.properties.SUBREGION;
 		}
 		else if (locationDetails.ne_10m_countries) {
 			// pickedInfo.textContent = `Selected: ${locationDetails.ne_10m_countries.properties.NAME} (${locationDetails.ne_10m_countries.properties.ADM0_A3})`;
@@ -2435,21 +2442,18 @@ async function handleLocationSelection(locationId) {
 			locationName = locationDetails.ne_10m_countries.properties.NAME;
 			countryName = locationDetails.ne_10m_countries.properties.ADMIN;
 			sovereignCountryName = locationDetails.ne_10m_countries.properties.SOVEREIGNT;
+			subRegion = locationDetails.ne_10m_countries.properties.SUBREGION;
 		}
 
+		/*
 		let locationMarkerText = locationName + ", " + countryName;
 
 		if (countryName !== sovereignCountryName) {
 			locationMarkerText += " (" + sovereignCountryName + ")";
 		}
+		*/
 
 		animateCenterOnGlobe(latitude, longitude);
-
-		/*
-		if (locationDetails.ne_10m_countries) {
-			highlightCountry(locationDetails.ne_10m_countries.geometry.coordinates);
-		}
-		*/
 
 		if (locationDetails.ne_10m_countries) {
 			const geom = locationDetails.ne_10m_countries.geometry;
@@ -2462,20 +2466,18 @@ async function handleLocationSelection(locationId) {
 
 			if (country) {
 				highlightCountry(country);
-				// fillCountry(country);
 				lastSelectedCountry = country || null;
 				applySelectionStyling();				
 			}
 		}
 
-		showPicked(latitude, longitude, locationMarkerText);
+		showPicked(latitude, longitude, { title: locationName, titleSuffix: countryName || sovereignCountryName, subTitle: subRegion});
         
     } catch (error) {
         console.error('Failed to load location details:', error);
         searchStatus.classList.remove('loading');
         searchStatus.textContent = 'Failed to load details';
         
-        // Show user-friendly error
         pickedInfo.textContent = 'Failed to load location details. Please try again.';
     }
 }

@@ -147,11 +147,11 @@
 			<div class="row" style="margin-top:0;">
 				<label for="speed">Spin speed</label>
 				<div class="readout">
-					<div><span id="speed-readout">+1.15°/s · Forward</span></div>
-					<div><small id="speed-readout-km">0.02 km/s · 72 km/h · period 5m 14s</small></div>
+					<div><span id="speed-readout">±0.00°/s (Stopped)</span></div>
+					<div><small id="speed-readout-km">0.000 km/s · 0 km/h</small></div>
 				</div>
 			</div>
-			<input id="speed" type="range" min="0" max="1" step="0.01" value="0.01" />
+			<input id="speed" type="range" min="0" max="1" step="0.01" value="0.0" />
 
 			<div class="sep"></div>
 
@@ -213,7 +213,7 @@
 		<div class="hud assistant" id="hud-assistant">
 			<h1>Assistant</h1>
 			<div class="sep"></div>
-			<div id="assistantPanel" class="mini">Assistant is offline</div>
+			<div id="assistantPanel" class="mini">The Assistant is offline.</div>
 		</div>
 
 		<!-- ABOUT HUD -->
@@ -258,10 +258,9 @@
 	<div id="markers-root"></div>
 
 	<!-- Leader line + callout panel -->
-	<svg id="callout-svg" style="position:absolute; inset:0; pointer-events:none; z-index:5;" width="0"
-		height="0"></svg>
+	<svg id="callout-svg" style="position:absolute; inset:0; pointer-events:none; z-index:5;" width="0"	height="0"></svg>
 
-	<div id="callout" class="hud left" style="position:absolute; display:none; z-index:6; max-width:210px;"></div>
+	<div id="callout" class="hud callout"></div>
 
 	<script src="./library/maplibre-gl.js"></script>
 
