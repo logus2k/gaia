@@ -57,9 +57,13 @@
   place-items: center;
   border: none;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.09);
   color: #33FF33;   /* inactive = green */
   cursor: pointer;
+}
+
+.pm-menu button:hover {
+  color: #FFB000;
 }
 
 .pm-menu button.active {

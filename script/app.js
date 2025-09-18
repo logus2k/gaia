@@ -1331,7 +1331,7 @@ const speedReadout = document.getElementById('speed-readout');
 const speedReadoutKm = document.getElementById('speed-readout-km');
 const sunTimeInput = document.getElementById('sunTime');
 const sunReadout = document.getElementById('sun-readout');
-const chkView = document.getElementById('toggle-view-readout');
+// const chkView = document.getElementById('toggle-view-readout');
 const viewRow = document.getElementById('view-readout-row');
 //const viewCenterEl = document.getElementById('view-center');
 //const viewRollEl = document.getElementById('view-roll');
@@ -1464,7 +1464,7 @@ chkLabels.addEventListener('change', (e) => { MarkerManager.setVisible(e.target.
 MarkerManager.setVisible(chkLabels.checked);
 
 // View readout toggle
-chkView.addEventListener('change', (e) => { viewRow.classList.toggle('hidden', !e.target.checked); });
+// chkView.addEventListener('change', (e) => { viewRow.classList.toggle('hidden', !e.target.checked); });
 
 // Lighting
 function updateSunFromTime(tHours) {

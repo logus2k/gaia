@@ -33,9 +33,9 @@ export class MiniGlobeOverlay {
         this.canvas.width = this.size;
         this.canvas.height = this.size;
         this.canvas.style.position = 'fixed';
-        this.canvas.style.bottom = '10px';
+        this.canvas.style.bottom = '20px';
         this.canvas.style.left = '15px';
-        this.canvas.style.zIndex = '10000';
+        this.canvas.style.zIndex = 10;
         this.canvas.style.background = 'transparent';
         document.body.appendChild(this.canvas);
     }
@@ -166,15 +166,16 @@ export class MiniGlobeOverlay {
         label.style.position = 'fixed';
         label.style.bottom = '15px';
         label.style.left = '20px';
+        label.style.right = '20px';
         label.style.color = '#00ff41';
         label.style.fontSize = '11px';
         label.style.fontFamily = 'Monaco, "Lucida Console", "Courier New", monospace';
         label.style.textAlign = 'center';
-        label.style.width = '100%';
+        label.style.width = 'auto';
         label.style.background = 'transparent';
         label.style.padding = '0px';
         label.style.borderRadius = '4px';
-        label.style.zIndex = '10000';
+        label.style.zIndex = 10;
         label.style.textShadow = '0 0 4px #00ff41';
         label.style.fontWeight = 'normal';
         label.textContent = '';
@@ -197,7 +198,7 @@ export class MiniGlobeOverlay {
         northLabel.style.textAlign = 'center';
         northLabel.style.width = '12px';
         northLabel.style.height = '12px';
-        northLabel.style.zIndex = '10001';
+        northLabel.style.zIndex = 11;
         northLabel.style.textShadow = '1px 1px 2px rgba(0,0,0,0.8)';
         northLabel.style.pointerEvents = 'none';
         northLabel.textContent = 'N';

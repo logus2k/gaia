@@ -81,9 +81,9 @@ body {
 }
 
 .logo.logo-terminal {
-    --primary: #2f57c7;
-    --primary-dark: #2563EB;
-    --secondary: #14447e;
+    --primary: #3559bb;
+    --primary-dark: #ddba3b;
+    --secondary: #224b36;
 }
 
 .logo.logo-terminal .logo-text span {
@@ -198,7 +198,7 @@ canvas {
 
 /* Hover effect (darker + slightly more solid) */
 [id^="hud-"].visible:hover {
-    color: #eabc66;
+    color: #FFB000;
     background: rgba(8, 10, 24, 0.97);
     opacity: 0.80;
 }
