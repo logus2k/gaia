@@ -1109,7 +1109,10 @@ const Callout = (() => {
 		const subTitle = calloutText.subTitle ? `<div class="calloutSubTitle">${calloutText.subTitle}</div>` : "";
 		const notes = coordinates ? coordinates : "";
 
+		const flag = calloutText.iso_a2 ? `<div class="calloutFlag"><img src="./api/flag/${calloutText.iso_a2.toLowerCase()}" /></div>` : "";
+
 		return `
+			${flag}
 			${title}
 			<div class="sep"></div>
 			${subTitle}
@@ -2398,8 +2401,9 @@ function handleGlobeClick(clientX, clientY) {
 		const countryName = country.feature.properties.ADMIN;
 		const sovereignCountryName = country.feature.properties.SOVEREIGNT;
 		const subRegion = country.feature.properties.SUBREGION;
+		const iso_a2 = country.feature.properties.ISO_A2_EH;
 
-		showPicked(latDeg, lonDeg, { title: countryName, titleSuffix: sovereignCountryName, subTitle: subRegion });
+		showPicked(latDeg, lonDeg, { title: countryName, titleSuffix: sovereignCountryName, subTitle: subRegion, iso_a2: iso_a2 });
 
 		lastSelectedCountry = country;
 		applySelectionStyling();

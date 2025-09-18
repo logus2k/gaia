@@ -56,6 +56,12 @@ app.get('/api/location/:id', async (req, res) => {
   }
 });
 
+
+app.get('/api/flag/:countryCode', (req, res) => {
+  ne10mHandler.getCountryFlag(req, res);
+});
+
+
 app.get('/api/search-index', (req, res) => {
   const searchIndexPath = path.join(__dirname, './data/ne_10m/index/search.index.json');
   res.sendFile(searchIndexPath, (err) => {

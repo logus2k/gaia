@@ -21,7 +21,7 @@ export class MenuManager {
             menuPosition: config.menuPosition || 'top-right',
             iconSize: config.menuIconSize || 40,
             margin: config.menuMargin || 16,
-            panelIds: config.panelIds || ['assistant', 'search', 'data', 'settings', 'about'],
+            panelIds: config.panelIds || ['search', 'data', 'assistant', 'settings', 'about'],
             initialVisibility: config.initialVisibility || {},
         };
 

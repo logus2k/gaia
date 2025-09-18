@@ -229,6 +229,8 @@ class NE10MHandler {
         return score;
     }
 
+
+
     // Get detailed information for a specific location by ID
     async getLocationDetails(req) {
         const locationId = req.params.id;
@@ -439,6 +441,73 @@ class NE10MHandler {
                 error: 'Error retrieving country locations',
                 message: error.message
             };
+        }
+    }
+
+    // Serve country flag SVG file
+    getCountryFlag(req, res) {
+        const countryCode = req.params.countryCode;
+        
+        if (!countryCode) {
+            res.status(400).json({
+                status: 400,
+                error: 'Country code required',
+                message: 'Please provide a 2-letter country code'
+            });
+            return;
+        }
+        
+        // Validate country code format (2 letters)
+        const normalizedCode = countryCode.toLowerCase();
+        if (!/^[a-z]{2}$/.test(normalizedCode)) {
+            res.status(400).json({
+                status: 400,
+                error: 'Invalid country code',
+                message: 'Country code must be exactly 2 letters'
+            });
+            return;
+        }
+        
+        try {
+            const flagsPath = path.resolve(__dirname, '../data/ne_10m/flags/4x3');
+            const flagFilePath = path.join(flagsPath, `${normalizedCode}.svg`);
+            
+            // Check if file exists
+            if (!fs.existsSync(flagFilePath)) {
+                res.status(404).json({
+                    status: 404,
+                    error: 'Flag not found',
+                    message: `Flag for country code ${countryCode} not found`
+                });
+                return;
+            }
+            
+            // Set appropriate headers for SVG
+            res.setHeader('Content-Type', 'image/svg+xml');
+            res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+            
+            // Send the file
+            res.sendFile(flagFilePath, (err) => {
+                if (err) {
+                    console.error(`Error serving flag ${countryCode}:`, err);
+                    // Only send error response if headers haven't been sent yet
+                    if (!res.headersSent) {
+                        res.status(500).json({
+                            status: 500,
+                            error: 'Error serving flag',
+                            message: 'Failed to serve flag file'
+                        });
+                    }
+                }
+            });
+            
+        } catch (error) {
+            console.error(`Error serving flag for ${countryCode}:`, error);
+            res.status(500).json({
+                status: 500,
+                error: 'Error serving flag',
+                message: error.message || 'An unexpected error occurred'
+            });
         }
     }
 
