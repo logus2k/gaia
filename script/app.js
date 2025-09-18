@@ -1175,67 +1175,106 @@ const Callout = (() => {
 		calloutEl.style.display = 'block';
 		ensureLine();
 
-
 		// --- Compute globe center and screen-space radius along the anchor direction ---
-		earth.getWorldPosition(globeCenterW);  // center is (0,0,0) in our scene, but this is robust
+		earth.getWorldPosition(globeCenterW);  
 		const centerPx = worldToScreen(globeCenterW);
-		// camera right vector → a point on the silhouette in world, then project to screen to get radius in px
 		const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion).normalize();
-		const edgeWorld = globeCenterW.clone().add(camRight.multiplyScalar(R * ATMO.scale)); // use atmo scale as visual rim
+		const edgeWorld = globeCenterW.clone().add(camRight.multiplyScalar(R * ATMO.scale));
 		const edgePx = worldToScreen(edgeWorld);
 		const radiusPx = Math.hypot(edgePx.x - centerPx.x, edgePx.y - centerPx.y);
 
-		// Screen coords for the anchor
-		const a = worldToScreen(aboveWorld); // anchor px
+		// FIXED ANCHOR: Screen coords for the geographic point (never smoothed)
+		const a = worldToScreen(aboveWorld); // anchor px - always exact
 		const vw = renderer.domElement.clientWidth;
 		const vh = renderer.domElement.clientHeight;
-		const PAD = 12;       // viewport padding
-		const GAP = radiusPx * 0.25; // % of the globe’s on-screen radius
+		const PAD = radiusPx * 0.25;       
+		const GAP = radiusPx * 0.25; 
 		const MAX_TOP = vh - PAD - calloutEl.offsetHeight;
 
 		// Direction from center to anchor in screen space
 		let vx = a.x - centerPx.x, vy = a.y - centerPx.y;
 		const len = Math.hypot(vx, vy);
-		if (len < 1e-3) {  // avoid degenerate, pick side by screen half
+		if (len < 1e-3) {  
 			vx = (a.x < vw * 0.5) ? -1 : 1; vy = 0;
 		} else {
 			vx /= len; vy /= len;
 		}
 
-		// Target panel edge position just outside the globe along (vx,vy)
+		// Calculate TARGET position for the panel (where we want the panel to be)
 		const px = centerPx.x + vx * (radiusPx + GAP);
 		const py = centerPx.y + vy * (radiusPx + GAP);
 
-		// Position panel so its near edge sits at (px,py)
-		// If pointing right (vx>0): the panel’s left edge should be at px; else right edge at px.
 		const panelW = calloutEl.offsetWidth || 280;
 		const panelH = calloutEl.offsetHeight || 120;
-		let leftPx;
+		let targetLeftPx;
 		if (vx >= 0) {
-			leftPx = Math.min(vw - PAD - panelW, Math.max(PAD, px));
+			targetLeftPx = Math.min(vw - PAD - panelW, Math.max(PAD, px));
 		} else {
-			leftPx = Math.min(vw - PAD, Math.max(PAD, px - panelW));
+			targetLeftPx = Math.min(vw - PAD, Math.max(PAD, px - panelW));
 		}
-		const topPx = Math.min(MAX_TOP, Math.max(PAD, py - panelH / 2));
+		const targetTopPx = Math.min(MAX_TOP, Math.max(PAD, py - panelH / 2));
 
-		calloutEl.style.left = `${leftPx}px`;
-		calloutEl.style.right = '';      // ensure left-based positioning
-		calloutEl.style.top = `${topPx}px`;
+		// SMOOTH PANEL MOVEMENT: Only interpolate the panel position, not the anchor
+		if (!update.currentLeft) update.currentLeft = targetLeftPx;
+		if (!update.currentTop) update.currentTop = targetTopPx;
 
-		// Nearest point on the panel rect to the anchor (for the line end)
+		// Damping factor - adjust this to control panel smoothness
+		const DAMPING = 0.03; // Similar to OrbitControls dampingFactor
+
+		// Smoothly interpolate panel position toward target
+		update.currentLeft += (targetLeftPx - update.currentLeft) * DAMPING;
+		update.currentTop += (targetTopPx - update.currentTop) * DAMPING;
+
+		// Apply the smoothed position to the panel
+		calloutEl.style.left = `${Math.round(update.currentLeft)}px`;
+		calloutEl.style.right = '';      
+		calloutEl.style.top = `${Math.round(update.currentTop)}px`;
+
+		// Line connects FIXED anchor point to center of nearest panel side
 		const r = calloutEl.getBoundingClientRect();
-		const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-		const x2 = clamp(a.x, r.left, r.right);
-		const y2 = clamp(a.y, r.top, r.bottom);
+		
+		// Calculate the center points of each side
+		const leftCenter = { x: r.left, y: r.top + r.height / 2 };
+		const rightCenter = { x: r.right, y: r.top + r.height / 2 };
+		const topCenter = { x: r.left + r.width / 2, y: r.top };
+		const bottomCenter = { x: r.left + r.width / 2, y: r.bottom };
+		
+		// Calculate distances from anchor point to each side center
+		const distToLeft = Math.hypot(a.x - leftCenter.x, a.y - leftCenter.y);
+		const distToRight = Math.hypot(a.x - rightCenter.x, a.y - rightCenter.y);
+		const distToTop = Math.hypot(a.x - topCenter.x, a.y - topCenter.y);
+		const distToBottom = Math.hypot(a.x - bottomCenter.x, a.y - bottomCenter.y);
+		
+		// Find which side center is closest
+		const minDist = Math.min(distToLeft, distToRight, distToTop, distToBottom);
+		
+		let x2, y2;
+		if (minDist === distToLeft) {
+			// Connect to middle of left side
+			x2 = leftCenter.x;
+			y2 = leftCenter.y;
+		} else if (minDist === distToRight) {
+			// Connect to middle of right side
+			x2 = rightCenter.x;
+			y2 = rightCenter.y;
+		} else if (minDist === distToTop) {
+			// Connect to middle of top side
+			x2 = topCenter.x;
+			y2 = topCenter.y;
+		} else {
+			// Connect to middle of bottom side
+			x2 = bottomCenter.x;
+			y2 = bottomCenter.y;
+		}
 
-		// Update SVG line (anchor → panel edge)
-		lineEl.setAttribute('x1', String(a.x));
-		lineEl.setAttribute('y1', String(a.y));
+		// Update SVG line: fixed anchor to smoothed panel
+		lineEl.setAttribute('x1', String(a.x)); // anchor always exact
+		lineEl.setAttribute('y1', String(a.y)); 
 		lineEl.setAttribute('x2', String(x2));
 		lineEl.setAttribute('y2', String(y2));
 
-		// Update anchor dot right on the globe position
-		dotEl.setAttribute('cx', String(a.x));
+		// Update anchor dot: always exactly at geographic coordinates
+		dotEl.setAttribute('cx', String(a.x)); // anchor always exact
 		dotEl.setAttribute('cy', String(a.y));
 		dotEl.setAttribute('r', '3.5');
 	}
