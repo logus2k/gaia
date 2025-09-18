@@ -757,6 +757,30 @@ function highlightCountry(country, rgb = 0xffd34a, alpha = 0.8) {
 }
 
 
+
+// Handle 2D map clicks
+function handle2DMapClick(e) {
+    const { lat, lng: lon } = e.lngLat;
+    const country = countryAtLonLat(lon, lat);
+    
+    if (country) {
+        const countryName = country.feature.properties.ADMIN;
+        const sovereignCountryName = country.feature.properties.SOVEREIGNT;
+        const subRegion = country.feature.properties.SUBREGION;
+
+        showPicked(lat, lon, { 
+            title: countryName, 
+            titleSuffix: sovereignCountryName, 
+            subTitle: subRegion 
+        });
+
+        lastSelectedCountry = country;
+        applySelectionStyling();
+    }
+}
+
+
+
 // --- Selected country fill (triangulated on tangent plane) ---
 const selectedFillGroup = new THREE.Group();
 selectedFillGroup.visible = false;
@@ -2776,8 +2800,9 @@ function forceMapBearing(map, bearing, retries = 3) {
 	*/
 }
 
-// Updated ensureMap function with robust bearing handling and clean exit logic
+
 function ensureMap(centerLL, zoom, stylePref) {
+
 	const desiredTag = (stylePref === 'streets') ? 'streets' : 'aerial';
 
 	// Capture pose once upstream; reuse it verbatim while entering 2D.
@@ -2842,6 +2867,12 @@ function ensureMap(centerLL, zoom, stylePref) {
 			}
 		}
 
+		// ADD COUNTRY SELECTION: Ensure click handler is bound for reused maps
+		if (!map2d._countryClickBound) {
+			map2d.on('click', handle2DMapClick);
+			map2d._countryClickBound = true;
+		}
+
 		bindExitHandlerOnce(map2d);
 		return map2d;
 	}
@@ -2866,6 +2897,10 @@ function ensureMap(centerLL, zoom, stylePref) {
 	if (map2d.scrollZoom?.enable) map2d.scrollZoom.enable({ around: 'pointer' });
 	if (map2d.dragRotate?.enable) map2d.dragRotate.enable();
 	if (map2d.touchZoomRotate?.enableRotation) map2d.touchZoomRotate.enableRotation();
+
+	// ADD COUNTRY SELECTION: Bind click handler for new maps
+	map2d.on('click', handle2DMapClick);
+	map2d._countryClickBound = true;
 
 	// After style load, assert the captured pose ONCE with force bearing
 	map2d.once('styledata', () => {
@@ -2896,7 +2931,6 @@ function ensureMap(centerLL, zoom, stylePref) {
 		}
 	});
 
-
 	// After style is ready, (re)create selection layers and sync current pick
 	map2d.on('styledata', () => {
 		if (!map2d.getSource('selected-country')) {
@@ -2916,7 +2950,6 @@ function ensureMap(centerLL, zoom, stylePref) {
 		}
 	});
 
-
 	_lastMapBearing = map2d.getBearing();
 	_mapBearingChanged = false;
 
@@ -2934,7 +2967,6 @@ function ensureMap(centerLL, zoom, stylePref) {
 
 	bindExitHandlerOnce(map2d);
 	return map2d;
-
 
 	function bindExitHandlerOnce(map) {
 		if (map._exitBound) return;
@@ -2963,7 +2995,7 @@ function ensureMap(centerLL, zoom, stylePref) {
 			// Near the poles, bearing is ill-defined — keep existing roll for stability
 			const nearPole = Math.abs(center.lat) > 89.5;
 
-			// Single, immediate handoff (no delayed “second” animation)
+			// Single, immediate handoff (no delayed "second" animation)
 			animateCenterOnGlobe(center.lat, center.lon, {
 				duration: 0,
 				preserveRoll: nearPole,
@@ -2979,12 +3011,7 @@ function ensureMap(centerLL, zoom, stylePref) {
 
 		map._exitBound = true;
 	}
-
-
-
-
 }
-
 
 
 
