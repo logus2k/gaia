@@ -40,7 +40,7 @@
 
 .pm-menu {
   position: fixed;
-  z-index: 9999;
+  z-index: 0;
   display: flex;
   gap: 8px;
   background: rgba(0, 0, 0, 0.35);
