@@ -17,7 +17,8 @@ const SETTINGS = {
 	nightTexture: '../data/BlackMarble_2016_3km.jpg',
 	topographyTexture: '../data/topography_3600_1800.png',
 	bathymetryTexture: '../data/gebco_08_rev_bath_3600x1800_color.jpg',
-	terrainTexture: '../data/eo_base_2020_clean_3600x1800.png',
+	// terrainTexture: '../data/eo_base_2020_clean_3600x1800.png',
+	terrainTexture: '../data/HYP_VLR_SR_OB_DR.png',
 	populationTexture: '../data/population_3600_1800.png',
 	vegetationTexture: '../data/vegetation_3600_1800.png',
 	land_temperatureTexture: '../data/land_temperature_3600_1800.png',
@@ -455,11 +456,21 @@ const R = 1;
 
 // 4k x 2k overlay (tune as needed)
 const selCanvas = document.createElement('canvas');
-selCanvas.width = 4096; selCanvas.height = 2048;
+selCanvas.width = 4096;
+selCanvas.height = 2048;
+
 const selCtx = selCanvas.getContext('2d');
 const selTex = new THREE.CanvasTexture(selCanvas);
 selTex.colorSpace = THREE.SRGBColorSpace;
+
+selTex.generateMipmaps = true;
+selTex.minFilter = THREE.LinearMipmapLinearFilter;
+selTex.magFilter = THREE.LinearFilter;
+selTex.wrapS = THREE.ClampToEdgeWrapping;
+selTex.wrapT = THREE.ClampToEdgeWrapping;
+
 selTex.anisotropy = renderer.capabilities.anisotropy;
+
 
 const selectedOverlay = new THREE.Mesh(
 	new THREE.SphereGeometry(R * 1.004, 96, 96),
@@ -470,8 +481,45 @@ const selectedOverlay = new THREE.Mesh(
 		depthWrite: false
 	})
 );
-selectedOverlay.renderOrder = 1.5; // globe(0) < overlay(1.5) < clouds(1) if you want clouds above, set to 0.5 instead
+
+
+const OVERLAY_BASE = 1.004;     // what the geometry was built with
+const OVERLAY_TARGET = 1.0013;  // try 1.0010–1.0016 for your taste
+
+selectedOverlay.scale.setScalar(OVERLAY_TARGET / OVERLAY_BASE);
+
+const mat = selectedOverlay.material;
+mat.polygonOffset = true;
+mat.polygonOffsetFactor = -1;
+mat.polygonOffsetUnits = -1;
+mat.alphaTest = 0.02;           // trims the subtle AA fringe
+mat.needsUpdate = true;
+
+
+selectedOverlay.material.alphaTest = 0.02;   // trims fuzzy 1–2% alpha fringe
+selectedOverlay.material.needsUpdate = true;
+
+selectedOverlay.renderOrder = 0.5; // globe(0) < overlay(1.5) < clouds(1) if you want clouds above, set to 0.5 instead
+
+
+
+
+
 globe.add(selectedOverlay);
+
+function sizeSelectionOverlayToDPR() {
+	const dpr = Math.min(window.devicePixelRatio || 1, 2.5); // cap if needed
+	// keep 2:1 aspect, power-of-two for nice mipmaps
+	const targetW = Math.min(8192, Math.max(2048, Math.pow(2, Math.round(Math.log2(renderer.domElement.clientWidth * dpr * 2)))));
+	const targetH = targetW / 2;
+	if (selCanvas.width !== targetW || selCanvas.height !== targetH) {
+		selCanvas.width = targetW;
+		selCanvas.height = targetH;
+		selTex.needsUpdate = true;
+	}
+}
+sizeSelectionOverlayToDPR();
+window.addEventListener('resize', sizeSelectionOverlayToDPR);
 
 function clearSelectionOverlay() {
 	selCtx.clearRect(0, 0, selCanvas.width, selCanvas.height);
@@ -692,7 +740,8 @@ function highlightCountry(country, rgb = 0xffd34a, alpha = 0.8) {
 	if (!country || !country.rings?.length) return;
 
 	// core outline
-	const coreGeom = buildCountryBordersGeometry(country.rings, R * 1.004);
+	const OUTLINE_R = R * 1.0016;
+	const coreGeom = buildCountryBordersGeometry(country.rings, OUTLINE_R);
 	const coreMat = new THREE.LineBasicMaterial({
 		color: rgb,
 		transparent: alpha < 1,
@@ -703,22 +752,6 @@ function highlightCountry(country, rgb = 0xffd34a, alpha = 0.8) {
 	const core = new THREE.LineSegments(coreGeom, coreMat);
 	core.renderOrder = 6;
 
-	// subtle glow (slightly lifted + additive)
-	/*
-	const glowGeom = buildCountryBordersGeometry(country.rings, R * 1.006);
-	const glowMat = new THREE.LineBasicMaterial({
-		color: rgb,
-		transparent: true,
-		opacity: Math.min(1, alpha * 0.5),
-		blending: THREE.AdditiveBlending,
-		depthTest: true,
-		depthWrite: false
-	});
-	const glow = new THREE.LineSegments(glowGeom, glowMat);
-	glow.renderOrder = 5;
-	*/
-
-	// selectedBordersGroup.add(glow, core);
 	selectedBordersGroup.add(core);
 	selectedBordersGroup.visible = true;
 }
@@ -1010,6 +1043,7 @@ MarkerManager.addMarker('tokyo', { lat: 35.6762, lon: 139.6503, label: 'Tokyo' }
 // -------- Layout Manager --------------
 // ---------- Callout (edge panel + leader line + anchor dot) ----------
 const Callout = (() => {
+
 	let active = false;
 	let lat = 0, lon = 0, elevate = 0.012;   // small lift above surface for the anchor point
 	let lineEl = null, dotEl = null;
@@ -1043,7 +1077,7 @@ const Callout = (() => {
 	}
 
 	function buildHTML({ calloutText: calloutText, lines }) {
-		
+
 		const coordinates = (lines || []).map(s => `<div class="calloutNotes">${s}</div>`).join('');
 
 		const titleSuffix = calloutText.titleSuffix && (calloutText.title && calloutText.titleSuffix !== calloutText.title) ? `<span class="callOutTitleSuffix">, ${calloutText.titleSuffix}</span>` : "";
@@ -1111,6 +1145,8 @@ const Callout = (() => {
 		clearSelectionOverlay();
 
 		lastSelectedCountry = null;
+
+ 		syncSelectionTo2D();		
 	}
 
 
@@ -1276,32 +1312,32 @@ await searchClient.initialize();
 /*
 // Search for locations (e.g., in autocomplete)
 function handleSearch(query) {
-    try {
-        const results = searchClient.search(query, { limit: 20 });
-        displaySearchResults(results);
-    } catch (error) {
-        console.error('Search failed:', error);
-    }
+	try {
+		const results = searchClient.search(query, { limit: 20 });
+		displaySearchResults(results);
+	} catch (error) {
+		console.error('Search failed:', error);
+	}
 }
 
 // When user selects a location, get full details
 async function handleLocationSelect(locationId) {
-    try {
-        // Show loading state
-        showLoadingIndicator();
-        
-        // Fetch detailed location information
-        const locationDetails = await searchClient.getLocationDetails(locationId);
-        
-        // Use the detailed data (render on map, show info panel, etc.)
-        renderLocationDetails(locationDetails);
-        
-    } catch (error) {
-        console.error('Failed to load location details:', error);
-        showError('Failed to load location details');
-    } finally {
-        hideLoadingIndicator();
-    }
+	try {
+		// Show loading state
+		showLoadingIndicator();
+	    
+		// Fetch detailed location information
+		const locationDetails = await searchClient.getLocationDetails(locationId);
+	    
+		// Use the detailed data (render on map, show info panel, etc.)
+		renderLocationDetails(locationDetails);
+	    
+	} catch (error) {
+		console.error('Failed to load location details:', error);
+		showError('Failed to load location details');
+	} finally {
+		hideLoadingIndicator();
+	}
 }
 */
 
@@ -1544,7 +1580,7 @@ function updateSpeedReadout(radPerSec) {
 	speedReadout.textContent = `${sign}${Math.abs(dps).toFixed(2)}°/s · ${dir}`;
 	const v_kms = Math.abs(radPerSec) * SETTINGS.earthRadiusKm, v_kmh = v_kms * 3600;
 	const period = (Math.abs(radPerSec) < 1e-6) ? Infinity : (2 * Math.PI / Math.abs(radPerSec));
-	const periodLabel = period && period !== Infinity ?  `· Period ${formatPeriod(period)}` : "";
+	const periodLabel = period && period !== Infinity ? `· Period ${formatPeriod(period)}` : "";
 	speedReadoutKm.textContent = `${v_kms.toFixed(3)} km/s · ${Math.round(v_kmh)} km/h${periodLabel}`;
 }
 updateSpeedReadout(autorotateSpeed);
@@ -1605,26 +1641,90 @@ globeHexInput.addEventListener('input', () => {
 
 
 
+
+
+function ensure2DSelectionLayers() {
+	if (!map2d || map2d.getSource('selected-country')) return;
+	map2d.addSource('selected-country', {
+		type: 'geojson',
+		data: { type: 'FeatureCollection', features: [] }
+	});
+	map2d.addLayer({
+		id: 'selected-country-fill',
+		type: 'fill',
+		source: 'selected-country',
+		paint: { 'fill-color': '#00c8ff', 'fill-opacity': 0.25, 'fill-antialias': true }
+	});
+	map2d.addLayer({
+		id: 'selected-country-outline',
+		type: 'line',
+		source: 'selected-country',
+		paint: { 'line-color': '#ffd34a', 'line-width': 2 }
+	});
+}
+
+function countryToFeature(c) {
+	if (!c) return null;
+	if (c.feature) return c.feature;  // best: already valid GeoJSON feature
+	// fallback from your normalized structure:
+	const geom = c.polygons?.length
+		? { type: 'MultiPolygon', coordinates: c.polygons }
+		: { type: 'Polygon', coordinates: c.rings || [] };
+	return { type: 'Feature', properties: { name: c.name, iso3: c.iso3 }, geometry: geom };
+}
+
+function syncSelectionTo2D() {
+  if (!map2d) return;
+  ensure2DSelectionLayers();
+  const src = map2d.getSource('selected-country');
+
+  if (lastSelectedCountry) {
+    const feat = countryToFeature(lastSelectedCountry);
+    src.setData({ type: 'FeatureCollection', features: feat ? [feat] : [] });
+
+    const fill  = parseHexRGBA(selFillHex.value)   || { rgb: 0x00c8ff, a: 0.25 };
+    const stroke= parseHexRGBA(selBorderHex.value) || { rgb: 0xffd34a, a: 0.8 };
+    map2d.setPaintProperty('selected-country-fill',     'fill-color',  '#' + fill.rgb.toString(16).padStart(6,'0'));
+    map2d.setPaintProperty('selected-country-fill',     'fill-opacity', selFillToggle.checked ? fill.a : 0);
+    map2d.setPaintProperty('selected-country-outline',  'line-color',  '#' + stroke.rgb.toString(16).padStart(6,'0'));
+    map2d.setPaintProperty('selected-country-outline',  'line-opacity', selBorderToggle.checked ? stroke.a : 0);
+  } else {
+    // clear the source and hide layers
+    src.setData({ type: 'FeatureCollection', features: [] });
+    if (map2d.getLayer('selected-country-fill'))    map2d.setPaintProperty('selected-country-fill',    'fill-opacity', 0);
+    if (map2d.getLayer('selected-country-outline')) map2d.setPaintProperty('selected-country-outline', 'line-opacity', 0);
+  }
+}
+
+
+
+
 let lastSelectedCountry = null;
 
 function applySelectionStyling() {
-	if (!lastSelectedCountry) { clearSelectionOverlay(); return; }
+	if (!lastSelectedCountry) { clearSelectionOverlay(); clearSelectedBorders(); return; }
 
 	const wantFill = selFillToggle.checked;
 	const wantStroke = selBorderToggle.checked;
 
 	const fill = wantFill ? parseHexRGBA(selFillHex.value) : null;
-	const stroke = wantStroke ? parseHexRGBA(selBorderHex.value) : null;
-
 	const fillRGBA = fill ? [(fill.rgb >> 16) & 255, (fill.rgb >> 8) & 255, fill.rgb & 255, fill.a] : null;
-	const strokeRGBA = stroke ? [(stroke.rgb >> 16) & 255, (stroke.rgb >> 8) & 255, stroke.rgb & 255, stroke.a] : null;
 
-	paintSelectionToOverlay(lastSelectedCountry, {
-		fillRGBA,
-		strokeRGBA,
-		strokePx: 1  // tweakable; use 3–4 for thicker borders
-	});
+	// paint only the fill to the overlay canvas
+	paintSelectionToOverlay(lastSelectedCountry, { fillRGBA, strokeRGBA: null });
+
+	// draw the outline as crisp 3D lines
+	if (wantStroke) {
+		const s = parseHexRGBA(selBorderHex.value) || { rgb: 0xffd34a, a: 0.8 };
+		highlightCountry(lastSelectedCountry, s.rgb, s.a);
+	} else {
+		clearSelectedBorders();
+	}
+
+	// 2D overlay:
+	syncSelectionTo2D();
 }
+
 
 
 // Toggle rows visibility
@@ -2181,7 +2281,7 @@ function showPicked(latDeg, lonDeg, country) {
 */
 
 async function showPicked(latDeg, lonDeg, calloutText) {
-	
+
 	// const selectedCountry = await countryDataDisplay.showPicked(latDeg, lonDeg, country);
 
 	// Show an edge callout for this selection
@@ -2237,7 +2337,7 @@ function handleGlobeClick(clientX, clientY) {
 		const sovereignCountryName = country.feature.properties.SOVEREIGNT;
 		const subRegion = country.feature.properties.SUBREGION;
 
-		showPicked(latDeg, lonDeg, { title: countryName, titleSuffix: sovereignCountryName, subTitle: subRegion});
+		showPicked(latDeg, lonDeg, { title: countryName, titleSuffix: sovereignCountryName, subTitle: subRegion });
 
 		lastSelectedCountry = country;
 		applySelectionStyling();
@@ -2300,135 +2400,135 @@ function searchCountriesByName(q) {
 */
 
 function renderSearchResults(items, coords) {
-    // Clear existing results
-    resultsBox.innerHTML = '';
-    
-    if (coords) {
-        // Handle coordinate results (your existing code)
-        // ... 
-        return;
-    }
-    
-    // Handle location search results
-    if (items.length === 0) {
-        resultsBox.innerHTML = '<div class="no-results">No locations found</div>';
-        return;
-    }
-    
-    items.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'search-result-item';
-        div.innerHTML = `${item.name} [${item.countryCode}]<i>(${item.type === 'country' ? 'Country' : 'Place'})</i>`;
-        
-        // Add click handler to load full details (triggers a second API call for the chosen location details)
-        div.addEventListener('click', () => {
-            handleLocationSelection(item.id);
-        });
-        
-        resultsBox.appendChild(div);
-    });
+	// Clear existing results
+	resultsBox.innerHTML = '';
+
+	if (coords) {
+		// Handle coordinate results (your existing code)
+		// ... 
+		return;
+	}
+
+	// Handle location search results
+	if (items.length === 0) {
+		resultsBox.innerHTML = '<div class="no-results">No locations found</div>';
+		return;
+	}
+
+	items.forEach(item => {
+		const div = document.createElement('div');
+		div.className = 'search-result-item';
+		div.innerHTML = `${item.name} [${item.countryCode}]<i>(${item.type === 'country' ? 'Country' : 'Place'})</i>`;
+
+		// Add click handler to load full details (triggers a second API call for the chosen location details)
+		div.addEventListener('click', () => {
+			handleLocationSelection(item.id);
+		});
+
+		resultsBox.appendChild(div);
+	});
 }
 
 
 // Adapted search function
 async function doSearch() {
-    const q = searchBox.value;
-    
-    // Check if it's coordinates first
-    const coords = parseQueryToCoords(q);
-    if (coords) {
-        renderSearchResults([], coords);
-        pickedInfo.textContent = `Parsed coordinates: ${formatLat(coords.lat)}, ${formatLon(coords.lon)}`;
-        propsBox.classList.add('hidden'); 
-        propsList.innerHTML = '';
-        return;
-    }
-    
-    // Use the new search client for location search
-    try {
-        const items = searchClient.search(q);
-        searchStatus.textContent = items.length ? `${items.length} result(s)` : 'No results';
-        renderSearchResults(items, null);
-    } catch (error) {
-        console.error('Search failed:', error);
-        searchStatus.textContent = 'Search error';
-        renderSearchResults([], null);
-    }
+	const q = searchBox.value;
+
+	// Check if it's coordinates first
+	const coords = parseQueryToCoords(q);
+	if (coords) {
+		renderSearchResults([], coords);
+		pickedInfo.textContent = `Parsed coordinates: ${formatLat(coords.lat)}, ${formatLon(coords.lon)}`;
+		propsBox.classList.add('hidden');
+		propsList.innerHTML = '';
+		return;
+	}
+
+	// Use the new search client for location search
+	try {
+		const items = searchClient.search(q);
+		searchStatus.textContent = items.length ? `${items.length} result(s)` : 'No results';
+		renderSearchResults(items, null);
+	} catch (error) {
+		console.error('Search failed:', error);
+		searchStatus.textContent = 'Search error';
+		renderSearchResults([], null);
+	}
 }
 
 // Function to render the detailed location information
 function renderLocationDetails(locationDetails) {
-    // Update your UI with the detailed information
-    console.log('Location details:', locationDetails);
-    
-    // Show in info panel
-    pickedInfo.textContent = `${locationDetails.ne_10m_countries.properties.NAME} (${locationDetails.ne_10m_countries.properties.ISO_A3})`;
-    
-    // Populate properties list
-    propsBox.classList.remove('hidden');
-    propsList.innerHTML = '';
-    
-    // Add key properties to the list
-    const propertiesToShow = [
-        { label: 'Type', value: locationDetails.type },
-        { label: 'Name', value: locationDetails.name },
-        { label: 'Country Code', value: locationDetails.countryCode },
-        { label: 'ID', value: locationDetails.id }
-    ];
-    
-    // Add additional properties based on type
-    if (locationDetails.placeType) {
-        propertiesToShow.push({ label: 'Place Type', value: locationDetails.placeType });
-    }
-    if (locationDetails.population) {
-        propertiesToShow.push({ label: 'Population', value: locationDetails.population.toLocaleString() });
-    }
-    if (locationDetails.adminRegion) {
-        propertiesToShow.push({ label: 'Region', value: locationDetails.adminRegion });
-    }
-    
-    propertiesToShow.forEach(prop => {
-        const li = document.createElement('li');
-        li.innerHTML = `<strong>${prop.label}:</strong> ${prop.value}`;
-        propsList.appendChild(li);
-    });
-    
-    // Focus on location
-    if (locationDetails.geometry) {
-        focusOnLocationGeometry(locationDetails.geometry);
-    }
+	// Update your UI with the detailed information
+	console.log('Location details:', locationDetails);
+
+	// Show in info panel
+	pickedInfo.textContent = `${locationDetails.ne_10m_countries.properties.NAME} (${locationDetails.ne_10m_countries.properties.ISO_A3})`;
+
+	// Populate properties list
+	propsBox.classList.remove('hidden');
+	propsList.innerHTML = '';
+
+	// Add key properties to the list
+	const propertiesToShow = [
+		{ label: 'Type', value: locationDetails.type },
+		{ label: 'Name', value: locationDetails.name },
+		{ label: 'Country Code', value: locationDetails.countryCode },
+		{ label: 'ID', value: locationDetails.id }
+	];
+
+	// Add additional properties based on type
+	if (locationDetails.placeType) {
+		propertiesToShow.push({ label: 'Place Type', value: locationDetails.placeType });
+	}
+	if (locationDetails.population) {
+		propertiesToShow.push({ label: 'Population', value: locationDetails.population.toLocaleString() });
+	}
+	if (locationDetails.adminRegion) {
+		propertiesToShow.push({ label: 'Region', value: locationDetails.adminRegion });
+	}
+
+	propertiesToShow.forEach(prop => {
+		const li = document.createElement('li');
+		li.innerHTML = `<strong>${prop.label}:</strong> ${prop.value}`;
+		propsList.appendChild(li);
+	});
+
+	// Focus on location
+	if (locationDetails.geometry) {
+		focusOnLocationGeometry(locationDetails.geometry);
+	}
 }
 
 // Example function to focus on location geometry
 function focusOnLocationGeometry(geometry) {
 
 	if (geometry.type === 'Point') {
-        const [lon, lat] = geometry.coordinates;
-    } else if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
-        // highlightCountryGeometry(geometry);
-    }
+		const [lon, lat] = geometry.coordinates;
+	} else if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
+		// highlightCountryGeometry(geometry);
+	}
 }
 
 async function handleLocationSelection(locationId) {
-    try {
-        
+	try {
+
 		/*
 		// Show loading state
-        searchStatus.textContent = 'Loading details...';
-        searchStatus.classList.add('loading');
+		searchStatus.textContent = 'Loading details...';
+		searchStatus.classList.add('loading');
 		*/
-        
-        // Fetch detailed location information from the second API call
-        const locationDetails = await searchClient.getLocationDetails(locationId);
 
-        /*
+		// Fetch detailed location information from the second API call
+		const locationDetails = await searchClient.getLocationDetails(locationId);
+
+		/*
 		// Hide loading state
-        searchStatus.classList.remove('loading');
-        searchStatus.textContent = 'Details loaded';
+		searchStatus.classList.remove('loading');
+		searchStatus.textContent = 'Details loaded';
 		*/
 
-        // Use the detailed data (render on map, show info panel, etc.)
-        // renderLocationDetails(locationDetails);
+		// Use the detailed data (render on map, show info panel, etc.)
+		// renderLocationDetails(locationDetails);
 
 		let latitude, longitude, locationName, countryName, sovereignCountryName, subRegion;
 
@@ -2467,27 +2567,27 @@ async function handleLocationSelection(locationId) {
 			const geom = locationDetails.ne_10m_countries.geometry;
 			const country =
 				geom.type === 'Polygon'
-				? { rings: geom.coordinates, polygons: [geom.coordinates] }
-				: geom.type === 'MultiPolygon'
-				? { rings: geom.coordinates.flat(), polygons: geom.coordinates }
-				: null;
+					? { rings: geom.coordinates, polygons: [geom.coordinates] }
+					: geom.type === 'MultiPolygon'
+						? { rings: geom.coordinates.flat(), polygons: geom.coordinates }
+						: null;
 
 			if (country) {
 				highlightCountry(country);
 				lastSelectedCountry = country || null;
-				applySelectionStyling();				
+				applySelectionStyling();
 			}
 		}
 
-		showPicked(latitude, longitude, { title: locationName, titleSuffix: countryName || sovereignCountryName, subTitle: subRegion});
-        
-    } catch (error) {
-        console.error('Failed to load location details:', error);
-        searchStatus.classList.remove('loading');
-        searchStatus.textContent = 'Failed to load details';
-        
-        pickedInfo.textContent = 'Failed to load location details. Please try again.';
-    }
+		showPicked(latitude, longitude, { title: locationName, titleSuffix: countryName || sovereignCountryName, subTitle: subRegion });
+
+	} catch (error) {
+		console.error('Failed to load location details:', error);
+		searchStatus.classList.remove('loading');
+		searchStatus.textContent = 'Failed to load details';
+
+		pickedInfo.textContent = 'Failed to load location details. Please try again.';
+	}
 }
 
 
@@ -2758,6 +2858,27 @@ function ensureMap(centerLL, zoom, stylePref) {
 		}
 	});
 
+
+	// After style is ready, (re)create selection layers and sync current pick
+	map2d.on('styledata', () => {
+		if (!map2d.getSource('selected-country')) {
+			ensure2DSelectionLayers();
+		}
+		if (lastSelectedCountry) {
+			syncSelectionTo2D();
+		}
+	});
+
+	map2d.once('load', () => {
+		if (!map2d.getSource('selected-country')) {
+			ensure2DSelectionLayers();
+		}
+		if (lastSelectedCountry) {
+			syncSelectionTo2D();
+		}
+	});
+
+
 	_lastMapBearing = map2d.getBearing();
 	_mapBearingChanged = false;
 
@@ -2863,6 +2984,12 @@ function showMap2D(centerLL, zoom) {
 	// Show 2D overlay and disable 3D input
 	mapDiv.classList.add('visible');
 	map2dVisible = true;
+
+	if (map2d?.isStyleLoaded?.()) {
+		ensure2DSelectionLayers();
+		if (lastSelectedCountry) syncSelectionTo2D();
+	}
+
 	renderer.domElement.style.pointerEvents = 'none';
 	_preMapCamDist = cameraDistanceToGlobeCenter();
 
