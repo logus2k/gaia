@@ -1042,9 +1042,9 @@ const Callout = (() => {
 		return lineEl;
 	}
 
-	function buildHTML({ title, lines }) {
+	function buildHTML({ title: locationText, lines }) {
 		const L = (lines || []).map(s => `<div class="mini">${s}</div>`).join('');
-		return `<h2 style="margin:0 0 6px 0; font-size:14px;">${title || 'Selected location'}</h2>${L}`;
+		return `<h2 style="margin:0 0 6px 0; font-size:14px;">${locationText || 'Selected location'}</h2>${L}`;
 	}
 
 	function addCloseButton() {
@@ -1076,10 +1076,10 @@ const Callout = (() => {
 		calloutEl.appendChild(btn);
 	}
 
-	function show({ lat: la, lon: lo, title, lines }) {
+	function show({ lat: la, lon: lo, title: locationText, lines }) {
 		lat = la; lon = lo;
-		calloutEl.innerHTML = buildHTML({ title, lines });
-		addCloseButton();                     // ← add this line
+		calloutEl.innerHTML = buildHTML({ title: locationText, lines });
+		addCloseButton();
 		calloutEl.style.display = 'block';
 		ensureLine();
 		sizeCalloutSvgToViewport();
@@ -2159,25 +2159,29 @@ function showPicked(latDeg, lonDeg, country) {
 }
 */
 
-async function showPicked(latDeg, lonDeg, country) {
-	const selectedCountry = await countryDataDisplay.showPicked(latDeg, lonDeg, country);
+async function showPicked(latDeg, lonDeg, locationText) {
+	
+	// const selectedCountry = await countryDataDisplay.showPicked(latDeg, lonDeg, country);
 
-	// The rest of your original showPicked function logic
 	// Show an edge callout for this selection
-	const title = country ? `${country.name}${country.iso3 ? ` (${country.iso3})` : ''}` : 'Selected location';
-	const lines = [`${formatLat(latDeg)}, ${formatLon(lonDeg)}`];
-	Callout.show({ lat: latDeg, lon: lonDeg, title, lines });
+	// const title = country ? `${country.name}${country.iso3 ? ` (${country.iso3})` : ''}` : 'Selected location';
 
+	const lines = [`${formatLat(latDeg)}, ${formatLon(lonDeg)}`];
+	Callout.show({ lat: latDeg, lon: lonDeg, title: locationText, lines });
+
+	/*
 	if (country) {
 		highlightCountry(country);
 	} else {
 		clearSelectedBorders();
 	}
+	
 
 	lastSelectedCountry = country || null;
 	applySelectionStyling();
 
 	return selectedCountry;
+	*/
 }
 
 
@@ -2417,23 +2421,35 @@ async function handleLocationSelection(locationId) {
         // Use the detailed data (render on map, show info panel, etc.)
         // renderLocationDetails(locationDetails);
 
-		let latitude, longitude;
+		let latitude, longitude, locationName, countryName, sovereignCountryName;
 
 		if (locationDetails.populated_places) {
-			pickedInfo.textContent = `Selected: ${locationDetails.populated_places.properties.NAME} (${locationDetails.populated_places.properties.ADM0_A3})`;
+			// pickedInfo.textContent = `Selected: ${locationDetails.populated_places.properties.NAME} (${locationDetails.populated_places.properties.ADM0_A3})`;
 
 			latitude = locationDetails.populated_places.properties.LATITUDE;
 			longitude = locationDetails.populated_places.properties.LONGITUDE;
+			locationName = locationDetails.populated_places.properties.NAME;
+			countryName = locationDetails.populated_places.properties.ADM0NAME;
+			sovereignCountryName = locationDetails.populated_places.properties.SOV0NAME;
 		}
 		else if (locationDetails.ne_10m_countries) {
-			pickedInfo.textContent = `Selected: ${locationDetails.ne_10m_countries.properties.NAME} (${locationDetails.ne_10m_countries.properties.ADM0_A3})`;
+			// pickedInfo.textContent = `Selected: ${locationDetails.ne_10m_countries.properties.NAME} (${locationDetails.ne_10m_countries.properties.ADM0_A3})`;
 
 			latitude = locationDetails.ne_10m_countries.properties.LABEL_Y;
 			longitude = locationDetails.ne_10m_countries.properties.LABEL_X;
+			locationName = locationDetails.ne_10m_countries.properties.NAME;
+			countryName = locationDetails.ne_10m_countries.properties.ADMIN;
+			sovereignCountryName = locationDetails.ne_10m_countries.properties.SOVEREIGNT;
+		}
+
+		let locationMarkerText = locationName + ", " + countryName;
+
+		if (countryName !== sovereignCountryName) {
+			locationMarkerText += " (" + sovereignCountryName + ")";
 		}
 
 		animateCenterOnGlobe(latitude, longitude);
-		showPicked(latitude, longitude, countryAtLonLat(longitude, latitude));		
+		showPicked(latitude, longitude, locationMarkerText);
         
     } catch (error) {
         console.error('Failed to load location details:', error);
