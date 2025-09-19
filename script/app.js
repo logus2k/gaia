@@ -4,6 +4,7 @@ import { OrbitControls } from "../library/OrbitControls.js";
 import { SunCalcUTC } from "../script/sunset.js";
 import { MiniGlobeOverlay } from "../script/mini.globe.js";
 import { LocationSearchClient } from "../script/location.search.client.js";
+import { WavingFlag } from "../script/waving.flag.js";
 
 import { CountryDataDisplay } from "../script/country.data.display.js";
 
@@ -760,23 +761,23 @@ function highlightCountry(country, rgb = 0xffd34a, alpha = 0.8) {
 
 // Handle 2D map clicks
 function handle2DMapClick(e) {
-    const { lat, lng: lon } = e.lngLat;
-    const country = countryAtLonLat(lon, lat);
-    
-    if (country) {
-        const countryName = country.feature.properties.ADMIN;
-        const sovereignCountryName = country.feature.properties.SOVEREIGNT;
-        const subRegion = country.feature.properties.SUBREGION;
+	const { lat, lng: lon } = e.lngLat;
+	const country = countryAtLonLat(lon, lat);
 
-        showPicked(lat, lon, { 
-            title: countryName, 
-            titleSuffix: sovereignCountryName, 
-            subTitle: subRegion 
-        });
+	if (country) {
+		const countryName = country.feature.properties.ADMIN;
+		const sovereignCountryName = country.feature.properties.SOVEREIGNT;
+		const subRegion = country.feature.properties.SUBREGION;
 
-        lastSelectedCountry = country;
-        applySelectionStyling();
-    }
+		showPicked(lat, lon, {
+			title: countryName,
+			titleSuffix: sovereignCountryName,
+			subTitle: subRegion
+		});
+
+		lastSelectedCountry = country;
+		applySelectionStyling();
+	}
 }
 
 
@@ -1100,6 +1101,7 @@ const Callout = (() => {
 		return lineEl;
 	}
 
+	/*
 	function buildHTML({ calloutText: calloutText, lines }) {
 
 		const coordinates = (lines || []).map(s => `<div class="calloutNotes">${s}</div>`).join('');
@@ -1119,6 +1121,36 @@ const Callout = (() => {
 			${notes}
 		`;
 	}
+	*/
+
+	function buildHTML({ calloutText: calloutText, lines }) {
+		const coordinates = (lines || []).map(s => `<div class="calloutNotes">${s}</div>`).join('');
+
+		const titleSuffix = calloutText.titleSuffix &&
+			(calloutText.title && calloutText.titleSuffix !== calloutText.title)
+			? `<span class="callOutTitleSuffix">, ${calloutText.titleSuffix}</span>` : "";
+
+		const title = calloutText.title ? `<div class="calloutTitle">${calloutText.title}${titleSuffix}</div>` : "";
+		const subTitle = calloutText.subTitle ? `<div class="calloutSubTitle">${calloutText.subTitle}</div>` : "";
+		const notes = coordinates || "";
+
+		// ⬇️ Replace <img> with a mount for WavingFlag
+		const iso = (calloutText.iso_a2 || '').toString().trim().toUpperCase();
+		const flag = iso
+			? `<div class="calloutFlag">
+				<div class="flag-mount" data-iso="${iso}" data-px="100"></div>
+			</div>`
+			: "";
+
+		return `
+			${flag}
+			${title}
+			<div class="sep"></div>
+			${subTitle}
+			${notes}
+		`;
+	}
+
 
 	function addCloseButton() {
 		const btn = document.createElement('button');
@@ -1149,6 +1181,7 @@ const Callout = (() => {
 		calloutEl.appendChild(btn);
 	}
 
+	/*
 	function show({ lat: la, lon: lo, calloutText: calloutText, lines }) {
 		lat = la; lon = lo;
 		calloutEl.innerHTML = buildHTML({ calloutText: calloutText, lines });
@@ -1159,6 +1192,83 @@ const Callout = (() => {
 		active = true;
 		update(true);
 	}
+	*/
+
+	function show({ lat: la, lon: lo, calloutText: calloutText, lines }) {
+		// update coords
+		lat = la; lon = lo;
+
+		// Clean up previous flag instances for this callout
+		if (calloutEl.__flagInstances) {
+			calloutEl.__flagInstances.forEach(inst => inst?.destroy?.());
+			calloutEl.__flagInstances = null;
+		}
+
+		// Inject HTML (emits .flag-mount if iso_a2 exists)
+		calloutEl.innerHTML = buildHTML({ calloutText: calloutText, lines });
+
+		// Make the callout visible BEFORE measuring/initializing the flags
+		calloutEl.style.display = 'block';
+
+		// Defer flag init one frame so layout is up-to-date
+		requestAnimationFrame(() => {
+			const mounts = calloutEl.querySelectorAll('.flag-mount');
+			const instances = [];
+
+			mounts.forEach(m => {
+				const px = parseInt(m.dataset.px, 10) || 600;
+
+				// Let the container control size (4:3). Explicit height avoids 0-height edge cases.
+				m.style.width = px + 'px';
+				m.style.height = Math.round(px * 3 / 4) + 'px';   // 4:3
+				if (!m.style.position) m.style.position = 'relative';
+				if (!m.style.display) m.style.display = 'block';
+
+				const inst = new WavingFlag(m, {
+					transparent: true,
+					showPole: false,
+
+					// Container-controlled sizing (important here)
+					tightCanvas: false,
+					fitMargin: 1.10,
+
+					// Geometry & wave
+					flagWidth: 4,
+					flagHeight: 3,
+					segments: 256,
+					animationSpeed: 4,
+					frequency: { x: 4, y: 3 },
+					strength: 0.10,
+
+					// Placement nudges you tuned
+					offsetXFrac: -0.165,
+					offsetYFrac: 0.11,
+
+					crossOrigin: 'anonymous',
+					svgUrl: `./api/flag/${(m.dataset.iso || '').toUpperCase()}`
+				});
+
+				instances.push(inst);
+			});
+
+			// Keep refs to clean up next time
+			calloutEl.__flagInstances = instances;
+
+			// In case other layout code adjusts sizes after this, trigger a resize pass
+			window.dispatchEvent(new Event('resize'));
+		});
+
+		// Your existing UI wiring
+		addCloseButton();
+		ensureLine();
+		sizeCalloutSvgToViewport();
+		active = true;
+		update(true);
+	}
+
+
+
+
 
 	function hide() {
 		active = false;
@@ -1173,7 +1283,7 @@ const Callout = (() => {
 
 		lastSelectedCountry = null;
 
- 		syncSelectionTo2D();		
+		syncSelectionTo2D();
 	}
 
 	function update(force = false) {
@@ -1202,7 +1312,7 @@ const Callout = (() => {
 		ensureLine();
 
 		// --- Compute globe center and screen-space radius along the anchor direction ---
-		earth.getWorldPosition(globeCenterW);  
+		earth.getWorldPosition(globeCenterW);
 		const centerPx = worldToScreen(globeCenterW);
 		const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion).normalize();
 		const edgeWorld = globeCenterW.clone().add(camRight.multiplyScalar(R * ATMO.scale));
@@ -1213,14 +1323,14 @@ const Callout = (() => {
 		const a = worldToScreen(aboveWorld); // anchor px - always exact
 		const vw = renderer.domElement.clientWidth;
 		const vh = renderer.domElement.clientHeight;
-		const PAD = radiusPx * 0.25;       
-		const GAP = radiusPx * 0.25; 
+		const PAD = radiusPx * 0.25;
+		const GAP = radiusPx * 0.25;
 		const MAX_TOP = vh - PAD - calloutEl.offsetHeight;
 
 		// Direction from center to anchor in screen space
 		let vx = a.x - centerPx.x, vy = a.y - centerPx.y;
 		const len = Math.hypot(vx, vy);
-		if (len < 1e-3) {  
+		if (len < 1e-3) {
 			vx = (a.x < vw * 0.5) ? -1 : 1; vy = 0;
 		} else {
 			vx /= len; vy /= len;
@@ -1253,27 +1363,27 @@ const Callout = (() => {
 
 		// Apply the smoothed position to the panel
 		calloutEl.style.left = `${Math.round(update.currentLeft)}px`;
-		calloutEl.style.right = '';      
+		calloutEl.style.right = '';
 		calloutEl.style.top = `${Math.round(update.currentTop)}px`;
 
 		// Line connects FIXED anchor point to center of nearest panel side
 		const r = calloutEl.getBoundingClientRect();
-		
+
 		// Calculate the center points of each side
 		const leftCenter = { x: r.left, y: r.top + r.height / 2 };
 		const rightCenter = { x: r.right, y: r.top + r.height / 2 };
 		const topCenter = { x: r.left + r.width / 2, y: r.top };
 		const bottomCenter = { x: r.left + r.width / 2, y: r.bottom };
-		
+
 		// Calculate distances from anchor point to each side center
 		const distToLeft = Math.hypot(a.x - leftCenter.x, a.y - leftCenter.y);
 		const distToRight = Math.hypot(a.x - rightCenter.x, a.y - rightCenter.y);
 		const distToTop = Math.hypot(a.x - topCenter.x, a.y - topCenter.y);
 		const distToBottom = Math.hypot(a.x - bottomCenter.x, a.y - bottomCenter.y);
-		
+
 		// Find which side center is closest
 		const minDist = Math.min(distToLeft, distToRight, distToTop, distToBottom);
-		
+
 		let x2, y2;
 		if (minDist === distToLeft) {
 			// Connect to middle of left side
@@ -1295,7 +1405,7 @@ const Callout = (() => {
 
 		// Update SVG line: fixed anchor to smoothed panel
 		lineEl.setAttribute('x1', String(a.x)); // anchor always exact
-		lineEl.setAttribute('y1', String(a.y)); 
+		lineEl.setAttribute('y1', String(a.y));
 		lineEl.setAttribute('x2', String(x2));
 		lineEl.setAttribute('y2', String(y2));
 
@@ -1739,26 +1849,26 @@ function countryToFeature(c) {
 }
 
 function syncSelectionTo2D() {
-  if (!map2d) return;
-  ensure2DSelectionLayers();
-  const src = map2d.getSource('selected-country');
+	if (!map2d) return;
+	ensure2DSelectionLayers();
+	const src = map2d.getSource('selected-country');
 
-  if (lastSelectedCountry) {
-    const feat = countryToFeature(lastSelectedCountry);
-    src.setData({ type: 'FeatureCollection', features: feat ? [feat] : [] });
+	if (lastSelectedCountry) {
+		const feat = countryToFeature(lastSelectedCountry);
+		src.setData({ type: 'FeatureCollection', features: feat ? [feat] : [] });
 
-    const fill  = parseHexRGBA(selFillHex.value)   || { rgb: 0x00c8ff, a: 0.25 };
-    const stroke= parseHexRGBA(selBorderHex.value) || { rgb: 0xffd34a, a: 0.8 };
-    map2d.setPaintProperty('selected-country-fill',     'fill-color',  '#' + fill.rgb.toString(16).padStart(6,'0'));
-    map2d.setPaintProperty('selected-country-fill',     'fill-opacity', selFillToggle.checked ? fill.a : 0);
-    map2d.setPaintProperty('selected-country-outline',  'line-color',  '#' + stroke.rgb.toString(16).padStart(6,'0'));
-    map2d.setPaintProperty('selected-country-outline',  'line-opacity', selBorderToggle.checked ? stroke.a : 0);
-  } else {
-    // clear the source and hide layers
-    src.setData({ type: 'FeatureCollection', features: [] });
-    if (map2d.getLayer('selected-country-fill'))    map2d.setPaintProperty('selected-country-fill',    'fill-opacity', 0);
-    if (map2d.getLayer('selected-country-outline')) map2d.setPaintProperty('selected-country-outline', 'line-opacity', 0);
-  }
+		const fill = parseHexRGBA(selFillHex.value) || { rgb: 0x00c8ff, a: 0.25 };
+		const stroke = parseHexRGBA(selBorderHex.value) || { rgb: 0xffd34a, a: 0.8 };
+		map2d.setPaintProperty('selected-country-fill', 'fill-color', '#' + fill.rgb.toString(16).padStart(6, '0'));
+		map2d.setPaintProperty('selected-country-fill', 'fill-opacity', selFillToggle.checked ? fill.a : 0);
+		map2d.setPaintProperty('selected-country-outline', 'line-color', '#' + stroke.rgb.toString(16).padStart(6, '0'));
+		map2d.setPaintProperty('selected-country-outline', 'line-opacity', selBorderToggle.checked ? stroke.a : 0);
+	} else {
+		// clear the source and hide layers
+		src.setData({ type: 'FeatureCollection', features: [] });
+		if (map2d.getLayer('selected-country-fill')) map2d.setPaintProperty('selected-country-fill', 'fill-opacity', 0);
+		if (map2d.getLayer('selected-country-outline')) map2d.setPaintProperty('selected-country-outline', 'line-opacity', 0);
+	}
 }
 
 

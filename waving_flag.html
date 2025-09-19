@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Waving Flag (4×3)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        :root {
+            --bg: #111;
+            --fg: #eee;
+            --accent: #3aa8ff;
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            background: var(--bg);
+            color: var(--fg);
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        }
+
+        .wrap {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            height: 100%;
+        }
+
+        header {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            background: #1a1a1a;
+            border-bottom: 1px solid #222;
+        }
+
+        header select,
+        header input {
+            background: #0f0f0f;
+            color: var(--fg);
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 0.5rem 0.6rem;
+        }
+
+        header button {
+            background: var(--accent);
+            color: #001020;
+            border: 0;
+            border-radius: 8px;
+            padding: 0.5rem 0.8rem;
+            cursor: pointer;
+        }
+
+        header label {
+            font-size: 0.9rem;
+            opacity: 0.85;
+        }
+
+        .hint {
+            text-align: center;
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-top: -0.5rem;
+        }
+    </style>
+    <script type="importmap">{ "imports": { "three": "./library/three.module.min.js" } }</script>
+</head>
+
+<body>
+    <div class="wrap">
+        <header>
+            <label for="country">Country:</label>
+            <select id="country">
+                <!-- A small, editable list; add more as needed -->
+                <option value="PT">Portugal (PT)</option>
+                <option value="ES">Spain (ES)</option>
+                <option value="FR">France (FR)</option>
+                <option value="DE">Germany (DE)</option>
+                <option value="IT">Italy (IT)</option>
+                <option value="GB">United Kingdom (GB)</option>
+                <option value="IE">Ireland (IE)</option>
+                <option value="US">United States (US)</option>
+                <option value="CA">Canada (CA)</option>
+                <option value="BR">Brazil (BR)</option>
+                <option value="AR">Argentina (AR)</option>
+                <option value="MX">Mexico (MX)</option>
+                <option value="JP">Japan (JP)</option>
+                <option value="CN">China (CN)</option>
+                <option value="KR">South Korea (KR)</option>
+                <option value="IN">India (IN)</option>
+                <option value="AU">Australia (AU)</option>
+                <option value="NZ">New Zealand (NZ)</option>
+                <option value="ZA">South Africa (ZA)</option>
+                <option value="NG">Nigeria (NG)</option>
+            </select>
+
+            <button id="show">Show Flag</button>
+
+            <label style="margin-left:auto;">
+                API: <code>http://localhost:6678/api/flag/[ISO]</code>
+            </label>
+        </header>
+
+        <div id="mount" aria-label="Flag canvas"></div>
+        <div class="hint">Flag geometry is fixed to 4×3. Pick a country to load its SVG.</div>
+    </div>
+
+    <script type="module">
+        import WavingFlag from './script/waving.flag.js';
+
+        const mount = document.getElementById('mount');
+        const select = document.getElementById('country');
+        const btn = document.getElementById('show');
+
+        // Create the flag viewer (4×3 geometry)
+        const flag = new WavingFlag(mount, {
+            svgUrl: null,            // we’ll set this after selection
+            flagWidth: 4,            // 4 units wide
+            flagHeight: 3,           // 3 units high
+            segments: 256,           // enough tesselation to wave nicely
+            animationSpeed: 4,
+            frequency: { x: 4, y: 3 },
+            strength: 0.10,
+            wireframe: false,
+            crossOrigin: 'anonymous', // allow CORS if server sends ACAO
+            showPole: false,
+            tightCanvas: true,
+            targetPixelWidth: 600,
+            // nudges:
+            offsetXFrac: -0.165,
+            offsetYFrac: 0.11,
+        });
+
+        // Helper to build the API URL
+        const apiUrl = iso => `./api/flag/${encodeURIComponent(iso)}`;
+
+        function loadSelected() {
+            const iso = (select.value || '').trim().toUpperCase();
+            if (!iso) return;
+            flag.setTextureUrl(apiUrl(iso));
+
+            // Ensure final on-screen aspect is 4:3 even if the SVG rasterizes to a different ratio.
+            // (WavingFlag auto-adjusts Y-scale to match the raster’s aspect; we reset to 1 here.)
+            // If your backend normalizes all flags to 4:3, you can remove this.
+            setTimeout(() => {
+                if (flag.flagMesh) flag.flagMesh.scale.y = 1;
+            }, 50);
+        }
+
+        // Initial load
+        loadSelected();
+
+        // Button click + change on select
+        btn.addEventListener('click', loadSelected);
+        select.addEventListener('change', loadSelected);
+
+        // Clean up if you ever navigate away (optional)
+        window.addEventListener('beforeunload', () => flag.destroy());
+    </script>
+</body>
+
+</html>
