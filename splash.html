@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Globe Preloader Splash (drop‑in)</title>
+	<style>
+		/* ===== Splash / Preloader ===== */
+		:root {
+			--bg: #0b1020;
+			--fg: #e6f0ff;
+			--muted: #98a7c2;
+			--accent: #79b6ff; /* matches your atmosphere tint */
+		}
+		html, body {
+			height: 100%;
+			margin: 0;
+			background: var(--bg);
+			color: var(--fg);
+			font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+			overflow: hidden; /* prevent scroll while loading */
+		}
+		/* Fullscreen overlay */
+		#preloader {
+			position: fixed;
+			inset: 0;
+			display: grid;
+			place-items: center;
+			background: radial-gradient(1200px 600px at 50% 40%, #111b36 0%, var(--bg) 60%);
+			z-index: 99999;
+			transition: opacity .6s ease, visibility .6s ease;
+		}
+		#preloader.hidden {
+			opacity: 0;
+			visibility: hidden;
+		}
+		/* Card */
+		.pre-card {
+			width: min(560px, 86vw);
+			padding: 28px 28px 22px;
+			border-radius: 18px;
+			background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+			backdrop-filter: blur(8px);
+			box-shadow: 0 20px 60px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.06);
+		}
+		.pre-title {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			letter-spacing: .02em;
+			font-weight: 600;
+			margin: 0 0 8px;
+		}
+		.pre-title .dot {
+			width: 12px;
+			height: 12px;
+			border-radius: 50%;
+			background: var(--accent);
+			box-shadow: 0 0 18px 6px rgba(121,182,255,.45);
+			animation: pulse 1.6s ease-in-out infinite;
+		}
+		@keyframes pulse {
+			0%, 100% { transform: scale(1); opacity: .9 }
+			50% { transform: scale(1.25); opacity: 1 }
+		}
+		.pre-headline {
+			margin: 0 0 14px;
+			font-size: clamp(18px, 3vw, 22px);
+			font-weight: 700;
+		}
+		.pre-sub {
+			margin: 0 0 18px;
+			font-size: 14px;
+			color: var(--muted);
+		}
+		/* Progress bar */
+		.pre-bar {
+			position: relative;
+			height: 10px;
+			border-radius: 999px;
+			background: rgba(255,255,255,.07);
+			overflow: hidden;
+		}
+		.pre-fill {
+			position: absolute;
+			inset: 0 auto 0 0;
+			width: 0%;
+			background: linear-gradient(90deg, #4da3ff, #9fd1ff);
+			border-radius: inherit;
+			transform: translateZ(0);
+			transition: width .15s ease;
+		}
+		.pre-meta {
+			display: flex;
+			justify-content: space-between;
+			align-items: baseline;
+			margin-top: 10px;
+			font-size: 12px;
+			color: var(--muted);
+		}
+		.pre-tips { margin-top: 10px; font-size: 12px; color: var(--muted); }
+		.pre-tip-rotator { opacity: .9 }
+		/* Optional tiny starfield backdrop */
+		#pre-stars { position: absolute; inset: 0; z-index: -1; opacity: .35 }
+	</style>
+</head>
+<body>
+	<!-- ===== Preloader Overlay (drop this right after <body> in globe21.html) ===== -->
+	<div id="preloader" role="status" aria-live="polite">
+		<canvas id="pre-stars" aria-hidden="true"></canvas>
+		<div class="pre-card">
+			<p class="pre-title"><span class="dot" aria-hidden="true"></span> Loading • Globe Project</p>
+			<h1 class="pre-headline">Warming up the atmosphere shaders…</h1>
+			<p class="pre-sub">Fetching textures, borders & graticules. This can take a few seconds on first load.</p>
+			<div class="pre-bar" aria-label="Loading progress">
+				<div class="pre-fill" id="pre-fill"></div>
+			</div>
+			<div class="pre-meta">
+				<span id="pre-status">Starting…</span>
+				<span id="pre-pct" aria-label="Percent complete">0%</span>
+			</div>
+			<div class="pre-tips">
+				<span class="pre-tip-rotator" id="pre-tip">Tip: You can toggle borders & graticule in the HUD.</span>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		/* ===== Tiny starfield backdrop (cheap) ===== */
+		(function initPreStars() {
+			const c = document.getElementById('pre-stars');
+			const dpr = Math.min(2, window.devicePixelRatio || 1);
+			const ctx = c.getContext('2d');
+			function resize() {
+				c.width = innerWidth * dpr;
+				c.height = innerHeight * dpr;
+				ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+				draw();
+			}
+			function draw() {
+				ctx.clearRect(0, 0, c.width, c.height);
+				for (let i = 0; i < 240; i++) {
+					const x = Math.random() * innerWidth;
+					const y = Math.random() * innerHeight;
+					const r = Math.random() * 1.2;
+					ctx.globalAlpha = 0.6 + Math.random() * 0.4;
+					ctx.beginPath();
+					ctx.arc(x, y, r, 0, Math.PI * 2);
+					ctx.fillStyle = '#d7e8ff';
+					ctx.fill();
+				}
+			}
+			addEventListener('resize', resize);
+			resize();
+		})();
+	</script>
+
+	<script>
+		/* ===== Preloader Controller ===== */
+		(function () {
+			const overlay = document.getElementById('preloader');
+			const fill = document.getElementById('pre-fill');
+			const pct = document.getElementById('pre-pct');
+			const statusEl = document.getElementById('pre-status');
+			const tips = [
+				"Tip: Tap 'Reset' to snap back to default view.",
+				"Tip: Try the Night texture then toggle Clouds.",
+				"Tip: Use the Data Explorer to pick a country.",
+				"Tip: Drag to rotate, scroll to zoom.",
+				"Tip: The atmosphere color matches #78B4FF by default.",
+			];
+			let tipIdx = 0;
+			const tipEl = document.getElementById('pre-tip');
+			setInterval(() => { tipIdx = (tipIdx + 1) % tips.length; tipEl.textContent = tips[tipIdx]; }, 3000);
+
+			let displayed = 0; // 0..100
+			let target = 0;    // driven by manager or time
+			let done = false;
+			const startedAt = performance.now();
+			const minShowMs = 1200; // keep it visible briefly even on cache
+
+			function setStatus(msg) { statusEl.textContent = msg; }
+			function setTarget(n) { target = Math.max(target, Math.min(100, n)); }
+			function tick() {
+				// Ease toward target
+				const speed = Math.max(0.08, 0.25 - displayed / 600); // fast early, slower near the end
+				displayed += (target - displayed) * speed;
+				fill.style.width = displayed.toFixed(1) + '%';
+				pct.textContent = Math.round(displayed) + '%';
+				if (!done) requestAnimationFrame(tick);
+			}
+			requestAnimationFrame(tick);
+
+			// Fallback time-based progress (creeps to 90% over ~3s)
+			const fallback = setInterval(() => {
+				if (target < 90) setTarget(target + 2);
+			}, 120);
+
+			// Tie into THREE.LoadingManager if available
+			let manager;
+			function installManagerHooks() {
+				if (!('THREE' in window)) return;
+				manager = new THREE.LoadingManager();
+				let total = 0, loaded = 0;
+				manager.onStart = (url, itemsLoaded, itemsTotal) => {
+					total = itemsTotal; loaded = itemsLoaded;
+					setStatus('Starting downloads…');
+				};
+				manager.onProgress = (url, itemsLoaded, itemsTotal) => {
+					total = itemsTotal; loaded = itemsLoaded;
+					setStatus(url.split('/').pop() + '');
+					const frac = itemsTotal ? (itemsLoaded / itemsTotal) : 0;
+					setTarget(20 + frac * 70); // keep headroom for init
+				};
+				manager.onLoad = () => {
+					setStatus('Initializing renderer…');
+					setTarget(95);
+				};
+
+				// Expose for loaders: new THREE.TextureLoader(manager), new THREE.FileLoader(manager)
+				window.__globeLoadingManager = manager;
+
+				// Patch fetch() to count non-THREE assets (GeoJSON, etc.)
+				const _fetch = window.fetch.bind(window);
+				window.fetch = function (input, init) {
+					const url = typeof input === 'string' ? input : (input && input.url) || '';
+					manager.itemStart(url);
+					return _fetch(input, init).finally(() => manager.itemEnd(url));
+				};
+			}
+			installManagerHooks();
+
+			// Public API for your app code to signal readiness
+			window.markGlobeFirstFrame = function () {
+				setTarget(100);
+				const elapsed = performance.now() - startedAt;
+				const waitMore = Math.max(0, minShowMs - elapsed);
+				setTimeout(() => {
+					done = true;
+					clearInterval(fallback);
+					document.documentElement.style.overflow = 'auto';
+					overlay.classList.add('hidden');
+				}, waitMore);
+			};
+		})();
+	</script>
+
+	<!-- ===== Integration notes: paste ONLY the following bits into your existing globe21.html ===== -->
+	<!--
+	1) Place the <div id="preloader">…</div> as the first element inside <body>.
+	2) Paste the two <script> blocks anywhere after that (top of body is fine).
+	3) Tie your loaders to the manager by using the global: window.__globeLoadingManager
+	   Example changes in your existing code:
+
+	   // BEFORE
+	   const texLoader = new THREE.TextureLoader();
+	   const fileLoader = new THREE.FileLoader();
+
+	   // AFTER
+	   const texLoader = new THREE.TextureLoader(window.__globeLoadingManager);
+	   const fileLoader = new THREE.FileLoader(window.__globeLoadingManager);
+
+	   // If you use fetch for GeoJSON/textures, it's auto-tracked by the patch above.
+
+	4) When your renderer draws the first stable frame, call:
+	   window.markGlobeFirstFrame();
+	   A good spot is right after the first render() call in your init loop, or
+	   when your scene signals it's ready (textures, atmosphere, borders attached).
+
+	5) That’s it. The preloader will fade away and restore page scrolling.
+	-->
+
+	<!-- Dummy button to demonstrate hide (remove in real page) -->
+	<div style="position:fixed;bottom:12px;left:12px;z-index:1;opacity:.3">
+		<button onclick="window.markGlobeFirstFrame()" style="padding:6px 10px;border-radius:8px;border:1px solid #3a4a70;background:#132041;color:#b9d3ff;">Simulate Ready</button>
+	</div>
+</body>
+</html>

@@ -16,9 +16,7 @@ SunCalcUTC.setLongitudeConvention('east');
 const SETTINGS = {
 	dayTexture: '../data/world.topo.bathy.200412.3x21600x10800.jpg',
 	nightTexture: '../data/BlackMarble_2016_3km.jpg',
-	topographyTexture: '../data/topography_3600_1800.png',
 	bathymetryTexture: '../data/gebco_08_rev_bath_3600x1800_color.jpg',
-	// terrainTexture: '../data/eo_base_2020_clean_3600x1800.png',
 	terrainTexture: '../data/HYP_VLR_SR_OB_DR.png',
 	populationTexture: '../data/population_3600_1800.png',
 	vegetationTexture: '../data/vegetation_3600_1800.png',
@@ -1060,9 +1058,11 @@ const MarkerManager = (() => {
 })();
 
 
+/*
 MarkerManager.addMarker('lisbon', { lat: 38.7223, lon: -9.1393, label: 'Lisbon' });
 MarkerManager.addMarker('newyork', { lat: 40.7128, lon: -74.0060, label: 'New York' });
 MarkerManager.addMarker('tokyo', { lat: 35.6762, lon: 139.6503, label: 'Tokyo' });
+*/
 
 
 // -------- Layout Manager --------------
@@ -1438,7 +1438,6 @@ const TEX = {
 	night: nightTex,
 	population: null,
 	vegetation: null,
-	topography: null,
 	bathymetry: null,
 	land_temperature: null,
 	land_cover_classification: null,
@@ -1533,7 +1532,7 @@ const chkAtmo = document.getElementById('toggle-atmo');
 const atmoColorRow = document.getElementById('atmoColorRow');
 const atmoColorPick = document.getElementById('atmoColorPick');
 const atmoHex = document.getElementById('atmoHex');
-const chkLabels = document.getElementById('toggle-labels');
+// const chkLabels = document.getElementById('toggle-labels');
 const chkBorders = document.getElementById('toggle-borders');
 const bordersColorRow = document.getElementById('bordersColorRow');
 const bordersColorPick = document.getElementById('bordersColorPick');
@@ -1681,8 +1680,8 @@ cloudsAdditiveChk.addEventListener('change', () => {
 
 
 // Labels toggle
-chkLabels.addEventListener('change', (e) => { MarkerManager.setVisible(e.target.checked); });
-MarkerManager.setVisible(chkLabels.checked);
+// chkLabels.addEventListener('change', (e) => { MarkerManager.setVisible(e.target.checked); });
+// MarkerManager.setVisible(chkLabels.checked);
 
 // View readout toggle
 // chkView.addEventListener('change', (e) => { viewRow.classList.toggle('hidden', !e.target.checked); });
@@ -1749,14 +1748,37 @@ skyBright.addEventListener('input', async () => { skyBaseBrightness = parseFloat
 
 // Spin readout
 let autorotateSpeed = parseFloat(speedInput.value); // rad/s
-function formatPeriod(seconds) { if (!isFinite(seconds) || seconds > 864000) return '—'; const s = Math.round(seconds), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60; if (h > 0) return `${h}h ${m}m ${r}s`; if (m > 0) return `${m}m ${r}s`; return `${r}s`; }
+function formatPeriod(seconds) {
+	if (!isFinite(seconds) || seconds > 864000) {
+		return '—';
+	}
+	
+	const s = Math.round(seconds), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
+	
+	if (h > 0) {
+		return `${h}h ${m}m ${r}s`;
+	}
+	
+	if (m > 0) {
+		return `${m}m ${r}s`;
+	}
+	
+	return `${r}s`;
+}
+
 function updateSpeedReadout(radPerSec) {
-	const dps = radPerSec * 180 / Math.PI; const dir = (Math.abs(dps) < 1e-3) ? 'Stopped' : (dps > 0 ? 'Forward' : 'Reverse'); const sign = dps > 0 ? '+' : (dps < 0 ? '−' : '±');
-	speedReadout.textContent = `${sign}${Math.abs(dps).toFixed(2)}°/s · ${dir}`;
+	const dps = radPerSec * 180 / Math.PI;
+	
+	//const dir = (Math.abs(dps) < 1e-3) ? 'Stopped' : (dps > 0 ? 'Forward' : 'Reverse');
+	const dir = "";
+	
+	const sign = dps > 0 ? '+' : (dps < 0 ? '−' : '±');
+	speedReadout.textContent = `${sign}${Math.abs(dps).toFixed(2)}°/s`;
 	const v_kms = Math.abs(radPerSec) * SETTINGS.earthRadiusKm, v_kmh = v_kms * 3600;
 	const period = (Math.abs(radPerSec) < 1e-6) ? Infinity : (2 * Math.PI / Math.abs(radPerSec));
-	const periodLabel = period && period !== Infinity ? `· Period ${formatPeriod(period)}` : "";
-	speedReadoutKm.textContent = `${v_kms.toFixed(3)} km/s · ${Math.round(v_kmh)} km/h${periodLabel}`;
+	const periodLabel = period && period !== Infinity ? `· ${formatPeriod(period)} period` : "";
+	// speedReadoutKm.textContent = `${v_kms.toFixed(0)} km/s · ${Math.round(v_kmh)} km/h${periodLabel}`;
+	speedReadoutKm.textContent = `${Math.round(v_kms).toLocaleString('en-US')} km/s · ${Math.round(v_kmh).toLocaleString('en-US')} km/h${periodLabel}`;
 }
 updateSpeedReadout(autorotateSpeed);
 speedInput.addEventListener('input', () => { autorotateSpeed = parseFloat(speedInput.value); updateSpeedReadout(autorotateSpeed); });
@@ -1779,8 +1801,7 @@ async function applyTextureMode(mode) {
 	setEarthOpaque(); earthMatLit.color.set(0xffffff); earthMatUnlit.color.set(0xffffff);
 	let tex = TEX[mode];
 	if (!tex) {
-		if (mode === 'topography') tex = TEX.topography = await loadTexture(SETTINGS.topographyTexture);
-		else if (mode === 'bathymetry') tex = TEX.bathymetry = await loadTexture(SETTINGS.bathymetryTexture);
+		if (mode === 'bathymetry') tex = TEX.bathymetry = await loadTexture(SETTINGS.bathymetryTexture);
 		else if (mode === 'population') tex = TEX.population = await loadTexture(SETTINGS.populationTexture);
 		else if (mode === 'vegetation') tex = TEX.vegetation = await loadTexture(SETTINGS.vegetationTexture);
 		else if (mode === 'land_temperature') tex = TEX.land_temperature = await loadTexture(SETTINGS.land_temperatureTexture);
@@ -2229,9 +2250,12 @@ document.getElementById('btn-face-s').addEventListener('click', () => {
 document.getElementById('btn-face-0').addEventListener('click', () => {
 	animateCenterOnGlobe(0, 0);
 });
+
+/*
 document.getElementById('btn-mini-globe').addEventListener('click', () => {
 	miniGlobeOverlay.setVisible(!miniGlobeOverlay.isVisible);
 });
+*/
 
 // ---------- View readout ----------
 function latLonFromWorldPoint(worldP) {
@@ -3259,8 +3283,8 @@ function hideMap2D(nudgeOut = false) {
 		_handoffCooldownUntil = performance.now() + 800;   // short cooldown
 	}
 
-	// Optional: restore markers visibility tied to your checkbox
-	if (markersRoot) markersRoot.style.display = chkLabels?.checked ? '' : 'none';
+	// Optional: restore markers visibility
+	// if (markersRoot) markersRoot.style.display = chkLabels?.checked ? '' : 'none';
 
 	_handoffPose = null;
 	_handoffGlobeQuaternion = null;
