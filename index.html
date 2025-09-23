@@ -2,18 +2,24 @@
 <html lang="en">
 
 <head>
+
 	<meta charset="utf-8" />
+
 	<title>Gaia</title>
+
 	<link rel="stylesheet" href="./style/styles.css" />
 	<link rel="stylesheet" href="./style/hud.css" />
 	<link rel="stylesheet" href="./style/menu.css" />
 	<link rel="stylesheet" href="./style/assistant.css" />
 	<link rel="stylesheet" href="./style/maplibre-gl.css" />
+
 	<link rel="icon" href="data:,">
 
 	<script type="importmap">{ "imports": { "three": "./library/three.module.min.js" } }</script>
 
 	<script type="text/javascript" src="./library/moveable.min.js"></script>
+	<script src="./library/socket.io.min.js"></script>
+
 </head>
 
 <body>
@@ -137,7 +143,8 @@
 				</div>
 
 				<div class="row">
-					<label><input id="sel-border-toggle" type="checkbox" class="switch" checked>Selection Highlight</label>
+					<label><input id="sel-border-toggle" type="checkbox" class="switch" checked>Selection
+						Highlight</label>
 					<span id="sel-border-color-row" class="inline-color">
 						<input id="sel-border-color" type="color" value="#ffd34a">
 						<input id="sel-border-hex" type="hidden" value="#FFD34ACC">
@@ -163,9 +170,12 @@
 
 				<div class="sep2"></div>
 
-				<div class="row"><label><input id="toggle-stars" type="checkbox" class="switch"	checked>Background</label></div>
-				<div class="row"><label><input id="toggle-stars-motion" type="checkbox" class="switch" checked>Movement</label></div>
-				<div class="row"><label><input id="sunLightingEnabled" type="checkbox" class="switch">Sun Lighting</label></div>
+				<div class="row"><label><input id="toggle-stars" type="checkbox" class="switch"
+							checked>Background</label></div>
+				<div class="row"><label><input id="toggle-stars-motion" type="checkbox" class="switch"
+							checked>Movement</label></div>
+				<div class="row"><label><input id="sunLightingEnabled" type="checkbox" class="switch">Sun
+						Lighting</label></div>
 
 				<div class="subgroup" id="stars-controls" aria-live="polite" style="margin-top: 10px;">
 					<div class="control-grid">
@@ -192,8 +202,8 @@
 					<div class="label" aria-hidden="true"></div>
 					<div class="btnrow nowrap">
 						<button class="btn" id="btn-face-n" title="North Pole">North</button>
+						<button class="btn" id="btn-face-0" title="Prime Meridian (Longitude 0°)">Greenwich</button>
 						<button class="btn" id="btn-face-s" title="South Pole">South</button>
-						<button class="btn" id="btn-face-0"	title="Prime Meridian (Longitude 0°)">Greenwich</button>
 						<!--
 						<button class="btn" id="btn-mini-globe" title="Mini Globe Control">Mini-Globe</button>
 						-->
@@ -207,7 +217,7 @@
 							<div style="width: 160px;">
 								<small id="speed-readout">±0.00°/s</small>
 							</div>
-						</div>						
+						</div>
 					</div>
 					<input id="speed" type="range" min="0" max="1" step="0.01" value="0.0">
 					<div class="readout">
@@ -218,13 +228,6 @@
 				</div>
 			</details>
 		</div>
-
-
-
-
-
-
-
 
 
 		<!-- SEARCH HUD: Data Explorer -->
@@ -241,10 +244,12 @@
 			</div>
 
 			<div id="searchStatus" class="mini" style="margin-top:4px; opacity:.8;">Examples:
-				<code>38.7223, -9.1393</code> | <code>Lisbon</code> | <code>Portugal</code></div>
+				<code>38.7223, -9.1393</code> | <code>Lisbon</code> | <code>Portugal</code>
+			</div>
 			<div class="results" id="searchResults"></div>
 
 		</div>
+
 
 		<!-- DATA HUD -->
 		<div class="hud data" id="hud-data">
@@ -255,6 +260,7 @@
 				<dl id="propsList"></dl>
 			</div>
 		</div>
+
 
 		<!-- ASSISTANT HUD -->
 		<div class="hud assistant" id="hud-assistant">
@@ -294,9 +300,9 @@
 					</button>
 				</div>
 
-				<div style="display: flex; align-items: center; gap: 8px; margin-right: 10px;">
-					<div class="status-dot connected"></div>
+				<div style="display: flex; align-items: center; gap: 4px; margin-right: 10px;">
 					<span style="font-size: 12px; color: #33FF33; opacity: 0.8;">ONLINE</span>
+					<div class="status-dot connected"></div>
 				</div>
 
 			</div>
@@ -382,6 +388,7 @@
 
 				<!-- Chat Messages -->
 				<div class="chat-messages" id="chat-messages">
+
 					<div class="welcome-message">
 						<!--
 						<div class="avatar-placeholder">
@@ -389,14 +396,7 @@
 						</div>
 						-->
 						<div>Hello! I'm Gaia, your Earth exploration assistant.</div>
-						<div style="margin-top: 8px; opacity: 0.7;">Ask me about any location, country, or geographic
-							feature on Earth!</div>
-					</div>
-
-					<!-- Example messages -->
-					<div class="message user">
-						<div class="message-bubble">Tell me about Portugal's geography</div>
-						<div class="message-time">Just now</div>
+						<div style="margin-top: 8px; opacity: 0.7;">You can ask me anything</div>
 					</div>
 
 					<div class="typing-indicator" id="typing-indicator" style="display: none;">
@@ -408,27 +408,18 @@
 						</div>
 					</div>
 
-					<div class="message assistant">
-						<div class="message-bubble">Portugal is located on the Iberian Peninsula in southwestern Europe,
-							bordered by Spain to the east and north, and the Atlantic Ocean to the west and south. The
-							country has diverse geography including coastal plains, rolling hills, and mountainous
-							regions in the north...</div>
-						<div class="message-time">12:34 PM</div>
-					</div>
 				</div>
 
 				<!-- Input Area -->
 				<div class="chat-input-area">
 					<div class="input-row">
-						<textarea class="chat-input"
-							placeholder="Ask about Earth's geography, countries, or coordinates..." rows="2"
-							onkeydown="handleInputKeydown(event)"></textarea>
-
-						<button class="control-btn help-tooltip" data-tooltip="Send message" onclick="sendMessage()">
+						<textarea id="chat-input" class="chat-input" placeholder="Ask anything" rows="2"></textarea>
+						<button id="send-button" class="control-btn help-tooltip" data-tooltip="Send message">
 							<span class="material-symbols-outlined assistant-menu-button">send</span>
 						</button>
 					</div>
 				</div>
+
 			</div>
 		</div>
 		<script src="./script/assistant.js"></script>
@@ -533,6 +524,92 @@
 	<!-- Browser entry -->
 	<script type="module" src="./script/app.js"></script>
 	<script type="module" src="./script/settings.js"></script>
+
+
+
+	<script type="module">
+		import { initLLM } from "./script/llm-bridge.js";
+
+		const inputEl   = document.querySelector("#chat-input");
+		const sendBtn   = document.querySelector("#send-button");
+		const cancelBtn = document.querySelector("#cancelBtn");
+
+		let activeAssistantBubble = null;
+
+		// Small helpers from assistant.js are global (classic script tag),
+		// so we can call them here:
+		// - addMessage(type, content) -> now returns the bubble node
+		// - showTypingIndicator(), hideTypingIndicator()
+
+		const ui = {
+			started(runId) {
+				// create a fresh assistant message to stream into
+				showTypingIndicator();
+				activeAssistantBubble = window.addMessage('assistant', '');
+			},
+			stream(text) {
+				if (!activeAssistantBubble) {
+					// safety: if a stream sneaks in without started(), create one
+					activeAssistantBubble = window.addMessage('assistant', '');
+					showTypingIndicator();
+				}
+				activeAssistantBubble.textContent = text;
+			},
+			done() {
+				hideTypingIndicator();
+				activeAssistantBubble = null;
+			},
+			error(e) {
+				hideTypingIndicator();
+				activeAssistantBubble = null;
+				console.error(e);
+			}
+		};
+
+		const { send, cancel } = await initLLM({
+			url: "http://localhost:7701",
+			agent: "topic",
+			onStarted: ui.started,
+			onText: ui.stream,
+			onDone: ui.done,
+			onError: ui.error,
+			onReconnect: (n) => {}
+		});
+
+		async function doSend() {
+			const text = inputEl.value.trim();
+			if (!text) return;
+
+			// remove the static template assistant bubble once, if present
+			const template = document.getElementById('message-bubble');
+			if (template) {
+				const parentMsg = template.closest('.message.assistant');
+				if (parentMsg) parentMsg.remove();
+			}
+
+			// append user message to history
+			window.addMessage('user', text);
+
+			// clear input + any previous “inline output”
+			inputEl.value = "";
+			await send(text); // streaming will fill the newly created assistant bubble
+		}
+
+		sendBtn.addEventListener("click", doSend);
+
+		inputEl.addEventListener("keydown", (e) => {
+			if (e.isComposing) return;
+			if (e.key === "Enter" && !e.shiftKey) {
+				e.preventDefault();
+				doSend();
+			}
+		});
+
+		cancelBtn?.addEventListener("click", () => cancel());
+	</script>
+
+
+
 
 </body>
 

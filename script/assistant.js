@@ -25,32 +25,6 @@ document.addEventListener('keydown', function (event) {
     }
 });
 
-function handleInputKeydown(event) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        sendMessage();
-    }
-}
-
-function sendMessage() {
-    const input = document.querySelector('.chat-input');
-    const message = input.value.trim();
-    if (message) {
-        addMessage('user', message);
-        input.value = '';
-        input.style.height = 'auto';
-
-        // Show typing indicator
-        showTypingIndicator();
-
-        // Simulate AI response
-        setTimeout(() => {
-            hideTypingIndicator();
-            addMessage('assistant', 'This is a demo response. In the actual implementation, this would be the LLM response to: "' + message + '"');
-        }, 2000);
-    }
-}
-
 function addMessage(type, content) {
     const messagesContainer = document.getElementById('chat-messages');
     const messageDiv = document.createElement('div');
@@ -70,6 +44,8 @@ function addMessage(type, content) {
 
     messagesContainer.appendChild(messageDiv);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    return messageDiv.querySelector('.message-bubble');
 }
 
 function showTypingIndicator() {

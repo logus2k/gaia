@@ -1,9 +1,9 @@
 .assistant-container {
-    display: flex;
-    flex-direction: column;
-    height: auto;
-    min-height: calc(100% - 82px);
-    overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;     /* take remaining height of the .hud.assistant */
+	min-height: 0;      /* critical so the inner scroller can shrink */
+	overflow: hidden;   /* keep scroll strictly inside .chat-messages */
 }
 
 div.avatar-placeholder {
