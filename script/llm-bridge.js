@@ -4,7 +4,17 @@
 import { AgentClient } from "./agentClient.js";
 
 
-export async function initLLM({ url = location.origin, agent = "topic", onStarted, onText, onDone, onError, onReconnect } = {}) {
+export async function initLLM(
+	{
+		url = location.origin,
+		agent = "succint",
+		onStarted,
+		onText,
+		onDone,
+		onError,
+		onReconnect
+	} = {}) {
+		
 	const client = new AgentClient({ url });
 	await client.connect({ onReconnect });
 

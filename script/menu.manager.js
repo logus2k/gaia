@@ -117,22 +117,130 @@ export class MenuManager {
         });
     }
 
-    #makeDraggable(panel, id) {
-        if (typeof Moveable === 'undefined') { console.warn('Moveable not found: skipping drag for', id); return; }
-        const mv = new Moveable(document.body, { target: panel, draggable: true, origin: false });
 
-        let allow = false;
+
+
+    #makeDraggable(panel, id) {
+        if (typeof Moveable === 'undefined') {
+            console.warn('Moveable not found: skipping drag/resize for', id);
+            return;
+        }
+
+        // Root container for coordinates (all HUDs live in #overlay)
+        const root = document.getElementById('overlay') || panel.offsetParent || document.body;
+
+        // Ensure absolute positioning. DO NOT write transform/inset/overflow/etc.
+        const cs = getComputedStyle(panel);
+        if (!cs.position || cs.position === 'static') panel.style.position = 'absolute';
+
+        // Drag by title only
+        const headerEl = panel.querySelector('h1');
+
+        // One Moveable per panel — all panels draggable + resizable
+        const mv = new Moveable(root, {
+            target: panel,
+            draggable: true,
+            resizable: true,
+            origin: false,
+            renderDirections: ['nw','n','ne','e','se','s','sw','w'],
+            keepRatio: false,
+            throttleDrag: 1,
+            throttleResize: 1,
+            snappable: false,
+        });
+
+        const toPx = v => (v === '' || v === 'auto') ? 0 : parseFloat(v) || 0;
+
+        let allowDrag = false;
+        let start = null;
+
         mv.on('dragStart', e => {
             const t = e.inputEvent && e.inputEvent.target;
-            allow = !!(t && (t.closest && (t.closest('h1') && panel.contains(t.closest('h1')))));
-            if (allow) panel.style.cursor = 'move';
-            if (!allow && e.stop) e.stop();
+            // strictly title-only
+            allowDrag = !!(headerEl && t && (t === headerEl || headerEl.contains(t)));
+            if (!allowDrag) { e.stop && e.stop(); return; }
+
+            const pcs = getComputedStyle(panel);
+            const parentRect = (root === document.body
+                ? { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight }
+                : root.getBoundingClientRect());
+            const rect = panel.getBoundingClientRect();
+
+            // Detect the current anchoring on each axis
+            const usesRight  = pcs.right  !== 'auto' && pcs.right  !== '';
+            const usesBottom = pcs.bottom !== 'auto' && pcs.bottom !== '';
+
+            // Current anchors (px)
+            const curLeft   = toPx(pcs.left);
+            const curTop    = toPx(pcs.top);
+            const curRight  = toPx(pcs.right);
+            const curBottom = toPx(pcs.bottom);
+
+            // Derive when CSS had 'auto'
+            const derivedRight  = (parentRect.left + parentRect.width)  - (rect.left + rect.width);
+            const derivedBottom = (parentRect.top  + parentRect.height) - (rect.top  + rect.height);
+
+            start = {
+                usesRight,
+                usesBottom,
+                left:   usesRight  ? null : (curLeft   || (rect.left - parentRect.left)),
+                right:  usesRight  ? (curRight  || derivedRight)  : null,
+                top:    usesBottom ? null : (curTop    || (rect.top  - parentRect.top)),
+                bottom: usesBottom ? (curBottom || derivedBottom) : null
+            };
         });
-        mv.on('drag', ({ target, transform }) => { if (allow) target.style.transform = transform; });
-        mv.on('dragEnd', () => { allow = false; panel.style.cursor = ''; });
+
+        mv.on('drag', ({ beforeDelta }) => {
+            if (!allowDrag || !start) return;
+            const [dx, dy] = beforeDelta;
+
+            // Horizontal: keep original anchor
+            if (start.usesRight) {
+                const newRight = Math.max(0, start.right - dx);         // moving right => smaller 'right'
+                panel.style.right = `${Math.round(newRight)}px`;
+                panel.style.left  = 'auto';
+            } else {
+                const newLeft = Math.max(0, start.left + dx);
+                panel.style.left  = `${Math.round(newLeft)}px`;
+                panel.style.right = 'auto';
+            }
+
+            // Vertical: keep original anchor
+            if (start.usesBottom) {
+                const newBottom = Math.max(0, start.bottom - dy);       // moving down => smaller 'bottom'
+                panel.style.bottom = `${Math.round(newBottom)}px`;
+                panel.style.top    = 'auto';
+            } else {
+                const newTop = Math.max(0, start.top + dy);
+                panel.style.top    = `${Math.round(newTop)}px`;
+                panel.style.bottom = 'auto';
+            }
+        });
+
+        mv.on('dragEnd', () => {
+            allowDrag = false;
+            start = null;
+        });
+        
+        // --- Resize (width/height only; preserve anchors) ---
+        mv.on('resizeStart', ({ set }) => {
+            set([panel.offsetWidth, panel.offsetHeight]);
+        });
+
+        mv.on('resize', ({ width, height }) => {
+            const w = Math.max(260, width);
+            const h = Math.max(160, height);
+            panel.style.width  = `${Math.round(w)}px`;
+            panel.style.height = `${Math.round(h)}px`;
+            // Note: we never touch left/right/top/bottom here
+        });
 
         this.moveables.set(panel, mv);
     }
+
+
+
+
 
     #applyInitialVisibility() {
         Object.entries(this.cfg.initialVisibility).forEach(([id, vis]) => {

@@ -18,7 +18,7 @@
 	<script type="importmap">{ "imports": { "three": "./library/three.module.min.js" } }</script>
 
 	<script type="text/javascript" src="./library/moveable.min.js"></script>
-	<script src="./library/socket.io.min.js"></script>
+	<script type="text/javascript" src="./library/socket.io.min.js"></script>
 
 </head>
 
@@ -527,9 +527,8 @@
 	<script type="module" src="./script/app.js"></script>
 	<script type="module" src="./script/settings.js"></script>
 
-
-
 	<script type="module">
+
 		import { initLLM } from "./script/llm-bridge.js";
 
 		const inputEl   = document.querySelector("#chat-input");
@@ -608,10 +607,8 @@
 		});
 
 		cancelBtn?.addEventListener("click", () => cancel());
+
 	</script>
-
-
-
 
 </body>
 

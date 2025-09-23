@@ -1,116 +1,126 @@
 /* Theme Menu for 3D Earth Globe Application */
 
 @font-face {
-    font-family: 'Material Symbols Outlined';
-    font-style: normal;
-    font-weight: 400;
-    src: url('../fonts/material.symbols.outlined.woff2') format('woff2');
-    font-display: fallback;
+	font-family: 'Material Symbols Outlined';
+	font-style: normal;
+	font-weight: 400;
+	src: url('../fonts/material.symbols.outlined.woff2') format('woff2');
+	font-display: fallback;
 }
 
 .material-symbols-outlined {
-    font-family: 'Material Symbols Outlined';
-    font-weight: normal;
-    font-style: normal;
-    font-size: 24px;
-    line-height: 1;
-    letter-spacing: normal;
-    text-transform: none;
-    display: inline-block;
-    white-space: nowrap;
-    word-wrap: normal;
-    direction: ltr;
-    font-feature-settings: 'liga';
-    -webkit-font-feature-settings: 'liga';
-    -webkit-font-smoothing: antialiased;
+	font-family: 'Material Symbols Outlined';
+	font-weight: normal;
+	font-style: normal;
+	font-size: 24px;
+	line-height: 1;
+	letter-spacing: normal;
+	text-transform: none;
+	display: inline-block;
+	white-space: nowrap;
+	word-wrap: normal;
+	direction: ltr;
+	font-feature-settings: 'liga';
+	-webkit-font-feature-settings: 'liga';
+	-webkit-font-smoothing: antialiased;
 }
 
 /* rCS1w3zcxh are Moveable.js styles */
 .rCS1w3zcxh {
-    --moveable-color: transparent !important;
+	--moveable-color: transparent !important;
 }
 
 .rCS1w3zcxh .moveable-control {
-    border-radius: 0 !important;
-    border: 1px solid transparent !important;
-    box-sizing: border-box !important;
-    background: transparent !important;
-    z-index: 10 !important;
+	border-radius: 0 !important;
+	border: 1px solid transparent !important;
+	box-sizing: border-box !important;
+	background: transparent !important;
+	z-index: 10 !important;
+}
+
+.moveable-control,
+.moveable-line,
+.moveable-area {
+	z-index: 9999 !important;
 }
 
 .pm-menu {
-  position: fixed;
-  z-index: 0;
-  display: flex;
-  gap: 8px;
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(6px);
-  padding: 8px;
-  border-radius: 12px;
-  pointer-events: auto;
+	position: fixed;
+	z-index: 0;
+	display: flex;
+	gap: 8px;
+	background: rgba(0, 0, 0, 0.35);
+	backdrop-filter: blur(6px);
+	padding: 8px;
+	border-radius: 12px;
+	pointer-events: auto;
 }
 
 .pm-menu button {
-  width: var(--pm-icon, 40px);
-  height: var(--pm-icon, 40px);
-  display: grid;
-  place-items: center;
-  border: none;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.09);
-  color: #33FF33;   /* inactive = green */
-  cursor: pointer;
+	width: var(--pm-icon, 40px);
+	height: var(--pm-icon, 40px);
+	display: grid;
+	place-items: center;
+	border: none;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.09);
+	color: #33FF33;
+	/* inactive = green */
+	cursor: pointer;
 }
 
 .pm-menu button:hover {
-  color: #FFB000;
+	color: #FFB000;
 }
 
 .pm-menu button.active {
-  outline: none;
-  border: 1px solid #FFB000;   /* active border = orange */
-  box-shadow: 0 0 6px #FFB000; /* optional orange glow */
-  color: #FFB000;              /* active icon = orange */
+	outline: none;
+	border: 1px solid #FFB000;
+	/* active border = orange */
+	box-shadow: 0 0 6px #FFB000;
+	/* optional orange glow */
+	color: #FFB000;
+	/* active icon = orange */
 }
 
 .pm-menu .material-symbols-outlined {
-  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+	font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
 }
 
 .pm-top-left {
-  top: var(--pm-m, 16px);
-  left: var(--pm-m, 16px);
+	top: var(--pm-m, 16px);
+	left: var(--pm-m, 16px);
 }
 
 .pm-top-right {
-  top: var(--pm-m, 16px);
-  right: var(--pm-m, 16px);
+	top: var(--pm-m, 16px);
+	right: var(--pm-m, 16px);
 }
 
 .pm-bottom-left {
-  bottom: var(--pm-m, 16px);
-  left: var(--pm-m, 16px);
+	bottom: var(--pm-m, 16px);
+	left: var(--pm-m, 16px);
 }
 
 .pm-bottom-right {
-  bottom: var(--pm-m, 16px);
-  right: var(--pm-m, 16px);
+	bottom: var(--pm-m, 16px);
+	right: var(--pm-m, 16px);
 }
 
 .pm-close {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 20px;
-  height: 20px;
-  border: none;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #000000;
-  cursor: pointer;
-  line-height: 1;
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	width: 20px;
+	height: 20px;
+	border: none;
+	border-radius: 4px;
+	background: rgba(255, 255, 255, 0.1);
+	color: #000000;
+	cursor: pointer;
+	line-height: 1;
 }
 
 .pm-close:hover {
-  background: rgb(255, 176, 0, 0.85);
+	background: rgb(255, 176, 0, 0.85);
 }
