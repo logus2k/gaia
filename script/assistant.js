@@ -48,6 +48,7 @@ function addMessage(type, content) {
     return messageDiv.querySelector('.message-bubble');
 }
 
+/*
 function showTypingIndicator() {
     document.getElementById('typing-indicator').style.display = 'flex';
     document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;
@@ -56,6 +57,7 @@ function showTypingIndicator() {
 function hideTypingIndicator() {
     document.getElementById('typing-indicator').style.display = 'none';
 }
+*/
 
 let isRecording = false;
 function startRecording() {
@@ -78,9 +80,9 @@ function stopRecording() {
         setTimeout(() => {
             document.getElementById('audio-status').textContent = 'Ready to assist';
             addMessage('user', '[Voice message: "What is the capital of France?"]');
-            showTypingIndicator();
+            // showTypingIndicator();
             setTimeout(() => {
-                hideTypingIndicator();
+                // hideTypingIndicator();
                 addMessage('assistant', 'The capital of France is Paris, located in the north-central part of the country along the Seine River.');
             }, 1500);
         }, 1000);
