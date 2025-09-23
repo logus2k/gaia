@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { MenuManager } from '../script/menu.manager.js';
 import { OrbitControls } from "../library/OrbitControls.js";
 import { SunCalcUTC } from "../script/sunset.js";
 import { MiniGlobeOverlay } from "../script/mini.globe.js";
@@ -29,9 +28,6 @@ const SETTINGS = {
 	globeColorAlpha: 1.0,
 	earthRadiusKm: 6371
 };
-
-// Initialize menu with default settings
-const menuManager = new MenuManager();
 
 // ---------- 2D Map handoff (MapLibre) ----------
 const TILE_SIZE = 512;           // WebMercator world size used by MapLibre zoom

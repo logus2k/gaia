@@ -28,7 +28,7 @@ export class MenuManager {
         this.menuEl = null;
         this.panels = {};
         this.moveables = new Map();
-        this.topZ = 1000;
+        this.topZ = 10;
 
         this.#initMenu();
         this.#initPanels();
@@ -126,120 +126,86 @@ export class MenuManager {
             return;
         }
 
-        const root = document.getElementById('overlay') || panel.offsetParent || document.body;
-        
-        // Ensure absolute positioning
-        const cs = getComputedStyle(panel);
-        if (!cs.position || cs.position === 'static') panel.style.position = 'absolute';
-
-        // Special handling for About panel - remove transform centering
-        if (id === 'about') {
-            const rect = panel.getBoundingClientRect();
-            const parentRect = root.getBoundingClientRect();
-            panel.style.transform = 'none';
-            panel.style.left = `${rect.left - parentRect.left}px`;
-            panel.style.top = `${rect.top - parentRect.top}px`;
+        // Check for existing Moveable instance and destroy it
+        const existingMoveable = this.moveables.get(panel);
+        if (existingMoveable) {
+            existingMoveable.destroy();
+            this.moveables.delete(panel);
+            // console.log(`Destroyed existing Moveable for panel: ${id}`);
         }
 
-        // Determine if panel should be resizable
-        const isResizable = (id !== 'settings'); // Settings stays fixed size
+        const root = document.body;
+        const cs = getComputedStyle(panel);
+        if (!cs.position || cs.position === 'static') {
+            panel.style.position = 'absolute';
+            panel.style.transform = 'translate(0px, 0px)';
+        }
 
-        // Drag by title only
+        const isResizable = (id !== 'settings');
         const headerEl = panel.querySelector('h1');
 
-        // Configure Moveable
         const mv = new Moveable(root, {
             target: panel,
+            container: document.body,
             draggable: true,
             resizable: isResizable,
             origin: false,
-            renderDirections: isResizable ? ['nw','n','ne','e','se','s','sw','w'] : [],
+            // renderDirections: isResizable ? ['nw','n','ne','e','se','s','sw','w'] : [],
             keepRatio: false,
-            throttleDrag: 1,
-            throttleResize: 1,
+            throttleDrag: 0,
+            throttleResize: 0,
             snappable: false,
-            edge: false,
-            resizeFormat: v => `${Math.round(v)}px`
         });
 
         let allowDrag = false;
 
-        // DRAG HANDLERS
         mv.on('dragStart', e => {
             const t = e.inputEvent && e.inputEvent.target;
             allowDrag = !!(headerEl && t && (t === headerEl || headerEl.contains(t)));
-            if (!allowDrag) { 
-                e.stop && e.stop(); 
-                return; 
+            if (!allowDrag) {
+                e.stop && e.stop();
+                return;
             }
+            // console.log('Drag start:', id);
+            e.inputEvent.stopPropagation(); // Prevent panel mousedown
         });
 
-        mv.on('drag', ({ target, left, top }) => {
+        mv.on('drag', ({ target, transform }) => {
             if (!allowDrag) return;
-            
-            target.style.left = `${left}px`;
-            target.style.top = `${top}px`;
-            target.style.right = 'auto';
-            target.style.bottom = 'auto';
-            target.style.transform = 'none';
+            target.style.transform = transform;
+            // console.log('Dragging:', id, transform);
         });
 
         mv.on('dragEnd', () => {
             allowDrag = false;
+            // console.log('Drag end:', id);
         });
 
-        // RESIZE HANDLERS
         if (isResizable) {
-            mv.on('resizeStart', ({ setOrigin, dragStart }) => {
-                setOrigin(["%", "%"]);
-                
-                // Clear any clamp() or complex sizing on assistant panel
-                if (id === 'assistant') {
-                    const currentWidth = panel.offsetWidth;
-                    const currentHeight = panel.offsetHeight;
-                    panel.style.width = `${currentWidth}px`;
-                    panel.style.height = `${currentHeight}px`;
-                }
-                
-                // Optional: Store initial size
-                dragStart && dragStart.set([panel.offsetWidth, panel.offsetHeight]);
+            mv.on('resizeStart', ({ inputEvent }) => {
+                // console.log('Resize start:', id, inputEvent.target.className);
+                inputEvent.stopPropagation(); // Prevent panel mousedown
             });
 
-            mv.on('resize', ({ width, height, drag }) => {
-                // Define min/max constraints per panel type
-                let minW = 260, minH = 160;
-                let maxW = window.innerWidth - 40;
-                let maxH = window.innerHeight - 40;
-
-                // Special constraints for specific panels
-                if (id === 'assistant') {
-                    minW = 400;
-                    minH = 300;
-                } else if (id === 'about') {
-                    maxW = 600;
-                }
-
-                // Apply constraints
+            mv.on('resize', ({ target, width, height, delta }) => {
+                // console.log('Resizing:', id, width, height);
+                const minW = (id === 'assistant') ? 400 : 260;
+                const minH = (id === 'assistant') ? 300 : 160;
+                const maxW = window.innerWidth - 40;
+                const maxH = window.innerHeight - 40;
                 const w = Math.min(maxW, Math.max(minW, width));
                 const h = Math.min(maxH, Math.max(minH, height));
-                
-                // Set the new size
-                panel.style.width = `${Math.round(w)}px`;
-                panel.style.height = `${Math.round(h)}px`;
-                
-                // Update position to handle resize from left/top edges
-                if (drag) {
-                    panel.style.left = `${drag.left}px`;
-                    panel.style.top = `${drag.top}px`;
-                }
+                if (delta[0]) target.style.width = `${w}px`;
+                if (delta[1]) target.style.height = `${h}px`;
             });
 
             mv.on('resizeEnd', () => {
-                // Optional: Could save panel sizes to localStorage here
+                // console.log('Resize end:', id);
             });
         }
 
         this.moveables.set(panel, mv);
+        // console.log(`Created new Moveable for panel: ${id}`);
     }
 
 

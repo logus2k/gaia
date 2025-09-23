@@ -544,24 +544,20 @@
 
 		const ui = {
 			started(runId) {
-				// create a fresh assistant message to stream into
-				showTypingIndicator();
+				// Always create a new bubble for each new message
 				activeAssistantBubble = window.addMessage('assistant', '');
 			},
 			stream(text) {
 				if (!activeAssistantBubble) {
 					// safety: if a stream sneaks in without started(), create one
 					activeAssistantBubble = window.addMessage('assistant', '');
-					showTypingIndicator();
 				}
 				activeAssistantBubble.textContent = text;
 			},
 			done() {
-				hideTypingIndicator();
 				activeAssistantBubble = null;
 			},
 			error(e) {
-				hideTypingIndicator();
 				activeAssistantBubble = null;
 				console.error(e);
 			}

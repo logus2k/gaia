@@ -24,40 +24,24 @@
     transition: all 0.2s ease;
 }
 
-/* Show handles on panel hover */
-.hud:hover .moveable-control {
-    background: rgba(51, 255, 51, 0.5) !important;
-    border: 1px solid #33FF33 !important;
-}
-
-/* Brighter on direct handle hover */
-.moveable-control:hover {
-    background: #33FF33 !important;
-}
 
 /* Cursor styles for resize handles - ADD THIS */
+/*
 .moveable-n, .moveable-s { cursor: ns-resize !important; }
 .moveable-e, .moveable-w { cursor: ew-resize !important; }
 .moveable-nw, .moveable-se { cursor: nwse-resize !important; }
 .moveable-ne, .moveable-sw { cursor: nesw-resize !important; }
+*/
+
 
 /* Make resize handles larger and easier to grab - ADD THIS */
 .moveable-line {
-    width: 10px !important;  /* Increase from default */
-    height: 10px !important;
+    width: 70px !important;  /* Increase from default */
+    height: 70px !important;
 }
 
-.moveable-control {
-    width: 10px !important;  /* Corner handles */
-    height: 10px !important;
-}
 
-/* Ensure Moveable elements have proper z-index */
-.moveable-control,
-.moveable-line,
-.moveable-area {
-    z-index: 9999 !important;
-}
+
 
 /* Core HUD */
 .hud {
@@ -68,7 +52,7 @@
 	border: 1px solid var(--hud-border);
 	border-radius: 12px;
 	padding: 12px;
-	pointer-events: auto;
+	pointer-events: all;
 	user-select: none;
 	backdrop-filter: blur(6px) saturate(120%);
 	-webkit-backdrop-filter: blur(6px) saturate(120%);
@@ -81,12 +65,14 @@
 	width: auto;
 	min-height: 160px;
 	font: 12px Verdana, Geneva, Tahoma, sans-serif;
+	/*
 	transform: none;
 	will-change: opacity, transform, background, box-shadow;
 	transition: background .35s ease, box-shadow .35s ease, border-color .35s ease;
+	*/
 	box-sizing: border-box;
 	overflow: auto;
-	resize: none !important;
+	/* resize: none !important; */
 }
 
 .hud:hover,
@@ -99,38 +85,24 @@
 
 /* Positions */
 .hud.assistant {
-	top: auto;
-	left: auto;
-	right: 20px;
-	bottom: 50px;
-	/* wider + uncap base max-width */
-	width: clamp(720px, 64vw, 1200px);
-	max-width: none;
-	/* keep height clamp */
-	height: clamp(420px, 56vh, 800px);
-	max-height: 80dvh;
-	/* make the panel a column so the inner container can flex */
+	top: 200px;
+	left: 500px;
 	display: flex;
 	flex-direction: column;
-	opacity: 1;
-	z-index: 10;
 }
 
 .hud.search {
 	top: 85px;
 	left: 20px;
-	min-width: 400px;
+	overflow: hidden;
 }
 
 .hud.data {
-	left: 20px;
 	top: 420px;
-	right: auto;
-	bottom: auto;
-	min-width: 350px;
+	left: 20px;
+	overflow: hidden;	
 }
 
-/* Narrower Settings panel only */
 .hud.settings {
 	top: 85px;
 	right: 20px;
@@ -138,8 +110,18 @@
 	min-height: 220px;
 	max-width: min(92vw, 320px);
 	resize: none;
-	overflow: auto;
+	overflow: hidden;
 }
+
+.hud.about {
+    top: 50%;
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    width: min(500px, 92vw);
+	overflow: hidden;
+}
+
 
 /* Slightly tighter controls inside Settings so nothing overflows */
 .hud.settings .control-grid {
@@ -165,34 +147,6 @@
 
 
 
-/* About panel center */
-.hud.about {
-    top: 50%;
-    left: 50%;
-    right: auto;
-    bottom: auto;
-    width: min(500px, 92vw);
-}
-
-/* Responsive */
-@media (max-width:900px) {
-	.hud {
-		font-size: 11px;
-		padding: 10px;
-	}
-
-	.hud.assistant {
-		right: 12px;
-		bottom: 16px;
-		width: min(96vw, 720px);
-		height: min(60dvh, 520px);
-	}
-
-	.hud.search,
-	.hud.settings {
-		top: 72px;
-	}
-}
 
 /* Callout */
 .hud.callout {
