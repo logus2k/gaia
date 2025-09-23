@@ -126,118 +126,121 @@ export class MenuManager {
             return;
         }
 
-        // Root container for coordinates (all HUDs live in #overlay)
         const root = document.getElementById('overlay') || panel.offsetParent || document.body;
-
-        // Ensure absolute positioning. DO NOT write transform/inset/overflow/etc.
+        
+        // Ensure absolute positioning
         const cs = getComputedStyle(panel);
         if (!cs.position || cs.position === 'static') panel.style.position = 'absolute';
+
+        // Special handling for About panel - remove transform centering
+        if (id === 'about') {
+            const rect = panel.getBoundingClientRect();
+            const parentRect = root.getBoundingClientRect();
+            panel.style.transform = 'none';
+            panel.style.left = `${rect.left - parentRect.left}px`;
+            panel.style.top = `${rect.top - parentRect.top}px`;
+        }
+
+        // Determine if panel should be resizable
+        const isResizable = (id !== 'settings'); // Settings stays fixed size
 
         // Drag by title only
         const headerEl = panel.querySelector('h1');
 
-        // One Moveable per panel — all panels draggable + resizable
+        // Configure Moveable
         const mv = new Moveable(root, {
             target: panel,
             draggable: true,
-            resizable: true,
+            resizable: isResizable,
             origin: false,
-            renderDirections: ['nw','n','ne','e','se','s','sw','w'],
+            renderDirections: isResizable ? ['nw','n','ne','e','se','s','sw','w'] : [],
             keepRatio: false,
             throttleDrag: 1,
             throttleResize: 1,
             snappable: false,
+            edge: false,
+            resizeFormat: v => `${Math.round(v)}px`
         });
-
-        const toPx = v => (v === '' || v === 'auto') ? 0 : parseFloat(v) || 0;
 
         let allowDrag = false;
-        let start = null;
 
+        // DRAG HANDLERS
         mv.on('dragStart', e => {
             const t = e.inputEvent && e.inputEvent.target;
-            // strictly title-only
             allowDrag = !!(headerEl && t && (t === headerEl || headerEl.contains(t)));
-            if (!allowDrag) { e.stop && e.stop(); return; }
-
-            const pcs = getComputedStyle(panel);
-            const parentRect = (root === document.body
-                ? { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight }
-                : root.getBoundingClientRect());
-            const rect = panel.getBoundingClientRect();
-
-            // Detect the current anchoring on each axis
-            const usesRight  = pcs.right  !== 'auto' && pcs.right  !== '';
-            const usesBottom = pcs.bottom !== 'auto' && pcs.bottom !== '';
-
-            // Current anchors (px)
-            const curLeft   = toPx(pcs.left);
-            const curTop    = toPx(pcs.top);
-            const curRight  = toPx(pcs.right);
-            const curBottom = toPx(pcs.bottom);
-
-            // Derive when CSS had 'auto'
-            const derivedRight  = (parentRect.left + parentRect.width)  - (rect.left + rect.width);
-            const derivedBottom = (parentRect.top  + parentRect.height) - (rect.top  + rect.height);
-
-            start = {
-                usesRight,
-                usesBottom,
-                left:   usesRight  ? null : (curLeft   || (rect.left - parentRect.left)),
-                right:  usesRight  ? (curRight  || derivedRight)  : null,
-                top:    usesBottom ? null : (curTop    || (rect.top  - parentRect.top)),
-                bottom: usesBottom ? (curBottom || derivedBottom) : null
-            };
+            if (!allowDrag) { 
+                e.stop && e.stop(); 
+                return; 
+            }
         });
 
-        mv.on('drag', ({ beforeDelta }) => {
-            if (!allowDrag || !start) return;
-            const [dx, dy] = beforeDelta;
-
-            // Horizontal: keep original anchor
-            if (start.usesRight) {
-                const newRight = Math.max(0, start.right - dx);         // moving right => smaller 'right'
-                panel.style.right = `${Math.round(newRight)}px`;
-                panel.style.left  = 'auto';
-            } else {
-                const newLeft = Math.max(0, start.left + dx);
-                panel.style.left  = `${Math.round(newLeft)}px`;
-                panel.style.right = 'auto';
-            }
-
-            // Vertical: keep original anchor
-            if (start.usesBottom) {
-                const newBottom = Math.max(0, start.bottom - dy);       // moving down => smaller 'bottom'
-                panel.style.bottom = `${Math.round(newBottom)}px`;
-                panel.style.top    = 'auto';
-            } else {
-                const newTop = Math.max(0, start.top + dy);
-                panel.style.top    = `${Math.round(newTop)}px`;
-                panel.style.bottom = 'auto';
-            }
+        mv.on('drag', ({ target, left, top }) => {
+            if (!allowDrag) return;
+            
+            target.style.left = `${left}px`;
+            target.style.top = `${top}px`;
+            target.style.right = 'auto';
+            target.style.bottom = 'auto';
+            target.style.transform = 'none';
         });
 
         mv.on('dragEnd', () => {
             allowDrag = false;
-            start = null;
-        });
-        
-        // --- Resize (width/height only; preserve anchors) ---
-        mv.on('resizeStart', ({ set }) => {
-            set([panel.offsetWidth, panel.offsetHeight]);
         });
 
-        mv.on('resize', ({ width, height }) => {
-            const w = Math.max(260, width);
-            const h = Math.max(160, height);
-            panel.style.width  = `${Math.round(w)}px`;
-            panel.style.height = `${Math.round(h)}px`;
-            // Note: we never touch left/right/top/bottom here
-        });
+        // RESIZE HANDLERS
+        if (isResizable) {
+            mv.on('resizeStart', ({ setOrigin, dragStart }) => {
+                setOrigin(["%", "%"]);
+                
+                // Clear any clamp() or complex sizing on assistant panel
+                if (id === 'assistant') {
+                    const currentWidth = panel.offsetWidth;
+                    const currentHeight = panel.offsetHeight;
+                    panel.style.width = `${currentWidth}px`;
+                    panel.style.height = `${currentHeight}px`;
+                }
+                
+                // Optional: Store initial size
+                dragStart && dragStart.set([panel.offsetWidth, panel.offsetHeight]);
+            });
+
+            mv.on('resize', ({ width, height, drag }) => {
+                // Define min/max constraints per panel type
+                let minW = 260, minH = 160;
+                let maxW = window.innerWidth - 40;
+                let maxH = window.innerHeight - 40;
+
+                // Special constraints for specific panels
+                if (id === 'assistant') {
+                    minW = 400;
+                    minH = 300;
+                } else if (id === 'about') {
+                    maxW = 600;
+                }
+
+                // Apply constraints
+                const w = Math.min(maxW, Math.max(minW, width));
+                const h = Math.min(maxH, Math.max(minH, height));
+                
+                // Set the new size
+                panel.style.width = `${Math.round(w)}px`;
+                panel.style.height = `${Math.round(h)}px`;
+                
+                // Update position to handle resize from left/top edges
+                if (drag) {
+                    panel.style.left = `${drag.left}px`;
+                    panel.style.top = `${drag.top}px`;
+                }
+            });
+
+            mv.on('resizeEnd', () => {
+                // Optional: Could save panel sizes to localStorage here
+            });
+        }
 
         this.moveables.set(panel, mv);
     }
-
 
 
 

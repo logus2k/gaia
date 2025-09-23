@@ -10,6 +10,55 @@
 	--hud-shadow-strong: 0 16px 42px rgba(0, 0, 0, .65);
 }
 
+/* Base state - invisible */
+.rCS1w3zcxh {
+    --moveable-color: transparent !important;
+}
+
+.rCS1w3zcxh .moveable-control {
+    border-radius: 0 !important;
+    border: 1px solid transparent !important;
+    box-sizing: border-box !important;
+    background: transparent !important;
+    z-index: 10 !important;
+    transition: all 0.2s ease;
+}
+
+/* Show handles on panel hover */
+.hud:hover .moveable-control {
+    background: rgba(51, 255, 51, 0.5) !important;
+    border: 1px solid #33FF33 !important;
+}
+
+/* Brighter on direct handle hover */
+.moveable-control:hover {
+    background: #33FF33 !important;
+}
+
+/* Cursor styles for resize handles - ADD THIS */
+.moveable-n, .moveable-s { cursor: ns-resize !important; }
+.moveable-e, .moveable-w { cursor: ew-resize !important; }
+.moveable-nw, .moveable-se { cursor: nwse-resize !important; }
+.moveable-ne, .moveable-sw { cursor: nesw-resize !important; }
+
+/* Make resize handles larger and easier to grab - ADD THIS */
+.moveable-line {
+    width: 10px !important;  /* Increase from default */
+    height: 10px !important;
+}
+
+.moveable-control {
+    width: 10px !important;  /* Corner handles */
+    height: 10px !important;
+}
+
+/* Ensure Moveable elements have proper z-index */
+.moveable-control,
+.moveable-line,
+.moveable-area {
+    z-index: 9999 !important;
+}
+
 /* Core HUD */
 .hud {
 	position: absolute;
@@ -37,7 +86,7 @@
 	transition: background .35s ease, box-shadow .35s ease, border-color .35s ease;
 	box-sizing: border-box;
 	overflow: auto;
-	resize: both;
+	resize: none !important;
 }
 
 .hud:hover,
@@ -70,13 +119,15 @@
 .hud.search {
 	top: 85px;
 	left: 20px;
+	min-width: 400px;
 }
 
 .hud.data {
 	left: 20px;
-	top: 220px;
+	top: 420px;
 	right: auto;
 	bottom: auto;
+	min-width: 350px;
 }
 
 /* Narrower Settings panel only */
@@ -116,12 +167,11 @@
 
 /* About panel center */
 .hud.about {
-	top: 50%;
-	left: 50%;
-	right: auto;
-	bottom: auto;
-	width: min(500px, 92vw);
-	transform: translate(-50%, -50%);
+    top: 50%;
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    width: min(500px, 92vw);
 }
 
 /* Responsive */
@@ -203,6 +253,27 @@
 	color: var(--hud-warm);
 	text-shadow: 0 1px 0 rgba(0, 0, 0, .45);
 	line-height: 1.2;
+}
+
+/* Ensure all HUD panels have consistent base behavior */
+.hud {
+    /* Prevent text selection during drag */
+    user-select: none;
+    -webkit-user-select: none;
+    
+    /* Ensure panels stay within viewport */
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 40px);
+	resize: none;
+}
+
+/* Make only the h1 draggable (visual hint) */
+.hud h1 {
+    cursor: move;
+}
+
+.hud h1:active {
+    cursor: grabbing;
 }
 
 .hud.dragging {
@@ -512,14 +583,27 @@ input[type="search"] {
 	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-.results {
-	margin-top: 6px;
+div.results {
+	margin: 6px 6px 6px 0px;
 	max-height: 400px;
 	overflow: auto;
 	border-radius: 8px;
 	border: 1px solid rgba(255, 255, 255, .14);
 	mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 1) 16px,
 			rgba(0, 0, 0, 1) calc(100% - 16px), rgba(0, 0, 0, 0) 100%);
+}
+
+div.search-result-item {
+    border-bottom: 0.5px solid rgba(255, 255, 255, .12);
+    margin: 3px;
+    padding: 4px;
+    justify-items: left;
+    vertical-align: middle;
+}
+
+div.search-result-item:hover {
+    background: rgb(11 52 34 / 81%);
+    cursor: pointer;
 }
 
 .results button {

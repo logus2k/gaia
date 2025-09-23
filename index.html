@@ -610,6 +610,30 @@
 
 	</script>
 
+	<script type="module">
+
+		import { MenuManager } from "./script/menu.manager.js";
+		
+		// Initialize the menu manager after DOM is ready
+		document.addEventListener('DOMContentLoaded', () => {
+			const menuManager = new MenuManager({
+				menuPosition: 'top-right',
+				iconSize: 40,
+				initialVisibility: {
+					settings: false,
+					search: false,
+					data: false,
+					assistant: false,
+					about: false
+				}
+			});
+			
+			// Make it globally available if needed for debugging
+			window.menuManager = menuManager;
+		});
+
+	</script>	
+
 </body>
 
 </html>
