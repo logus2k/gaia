@@ -124,21 +124,22 @@ export class MenuManager {
 
 
     #makeDraggable(panel, id) {
+
         if (typeof Moveable === 'undefined') {
             console.warn('Moveable not found: skipping drag/resize for', id);
             return;
         }
 
-        // Check for existing Moveable instance and destroy it
         const existingMoveable = this.moveables.get(panel);
+
         if (existingMoveable) {
             existingMoveable.destroy();
             this.moveables.delete(panel);
-            // console.log(`Destroyed existing Moveable for panel: ${id}`);
         }
 
         const root = document.body;
         const cs = getComputedStyle(panel);
+
         if (!cs.position || cs.position === 'static') {
             panel.style.position = 'absolute';
             panel.style.transform = 'translate(0px, 0px)';
@@ -157,95 +158,76 @@ export class MenuManager {
         let allowDrag = false;
 
         mv.on('dragStart', e => {
-            const t = e.inputEvent && e.inputEvent.target;
-            allowDrag = !!(headerEl && t && (t === headerEl || headerEl.contains(t)));
-            if (!allowDrag) {
-                e.stop && e.stop();
-                return;
+                const t = e.inputEvent && e.inputEvent.target;
+                allowDrag = !!(headerEl && t && (t === headerEl || headerEl.contains(t)));
+                if (!allowDrag) {
+                    e.stop && e.stop();
+                    return;
+                }
+                e.inputEvent.stopPropagation();
+            })
+            .on('drag', ({ target, transform }) => {
+                if (!allowDrag) return;
+                target.style.transform = transform;
+            })
+            .on('dragEnd', () => {
+                allowDrag = false;
+            })
+            .on('render', () => {
+                this.#applyControlStyles(mv);
+            })
+            .on('resizeStart', e => {
+                if (isResizable) {
+                    // make Moveable compute translations relative to the current transform
+                    e.setOrigin(['%', '%']);            // don’t shift around the origin unexpectedly
+                    if (e.dragStart) e.dragStart.set([this.tx, this.ty]);
+                }
+            })
+            .on('resize', e => {
+                if (isResizable) {
+                    const { target, width, height, drag } = e;
+                    const [bx, by] = drag.beforeTranslate; // THIS is the key part
+
+                    // apply size
+                    target.style.width = `${width}px`;
+                    target.style.height = `${height}px`;
+
+                    // apply translation so the grabbed handle tracks the cursor
+                    target.style.transform = `translate(${bx}px, ${by}px)`;
+
+                    // keep local state in sync (optional but recommended)
+                    [this.tx, this.ty] = [bx, by];
+                }
             }
-            // console.log('Drag start:', id);
-            e.inputEvent.stopPropagation(); // Prevent panel mousedown
-        });
-
-        mv.on('drag', ({ target, transform }) => {
-            if (!allowDrag) return;
-            target.style.transform = transform;
-            // console.log('Dragging:', id, transform);
-        });
-
-        mv.on('dragEnd', () => {
-            allowDrag = false;
-            // console.log('Drag end:', id);
-        });
-
-
-
-        
-        if (isResizable) {
-            mv.on('resizeStart', e => {
-                // make Moveable compute translations relative to the current transform
-                e.setOrigin(['%', '%']);            // don’t shift around the origin unexpectedly
-                if (e.dragStart) e.dragStart.set([this.tx, this.ty]);
-            });
-
-            mv.on('resize', e => {
-                const { target, width, height, drag } = e;
-                const [bx, by] = drag.beforeTranslate; // THIS is the key part
-
-                // apply size
-                target.style.width = `${width}px`;
-                target.style.height = `${height}px`;
-
-                // apply translation so the grabbed handle tracks the cursor
-                target.style.transform = `translate(${bx}px, ${by}px)`;
-
-                // keep local state in sync (optional but recommended)
-                [this.tx, this.ty] = [bx, by];
-            });
-        }
-
-
-
-
-
-
-        /*
-        if (isResizable) {
-            mv.on('resizeStart', ({ inputEvent }) => {
-                // console.log('Resize start:', id, inputEvent.target.className);
-                inputEvent.stopPropagation(); // Prevent panel mousedown
-            });
-
-            mv.on('resize', ({ target, width, height, delta }) => {
-                // console.log('Resizing:', id, width, height);
-                const minW = (id === 'assistant') ? 400 : 260;
-                const minH = (id === 'assistant') ? 300 : 160;
-                const maxW = window.innerWidth - 40;
-                const maxH = window.innerHeight - 40;
-                const w = Math.min(maxW, Math.max(minW, width));
-                const h = Math.min(maxH, Math.max(minH, height));
-                if (delta[0]) target.style.width = `${w}px`;
-                if (delta[1]) target.style.height = `${h}px`;
-            });
-
-            mv.on('resizeEnd', () => {
-                // console.log('Resize end:', id);
-            });
-        }
-        */
-
-
-
-
-
-
+        );
 
         this.moveables.set(panel, mv);
-        // console.log(`Created new Moveable for panel: ${id}`);
+
+        mv.updateRect();
+        this.#applyControlStyles(mv);
     }
 
+    #applyControlStyles(moveable) {
 
+        const controls = Array.from(document.querySelectorAll(".moveable-control"));
+        const width = moveable.getRect().width;
+        const height = moveable.getRect().height;
 
+        controls.forEach((control, index) => {
+
+            control.classList.add("custom-control");
+
+            if (control.classList.contains("moveable-n") || control.classList.contains("moveable-s")) {
+                control.style.width = `${width}px`;
+                control.style.marginLeft = `-${width / 2}px`;
+            }
+            
+            if (control.classList.contains("moveable-w") || control.classList.contains("moveable-e")) {
+                control.style.height = `${height}px`;
+                control.style.marginTop = `-${height / 2}px`;
+            }
+        });
+    }    
 
     #applyInitialVisibility() {
         Object.entries(this.cfg.initialVisibility).forEach(([id, vis]) => {

@@ -29,6 +29,12 @@
     height: 20px !important;
 }
 
+.moveable-line.moveable-n,
+.moveable-line.moveable-s { height: 20px; }
+.moveable-line.moveable-e,
+.moveable-line.moveable-w { width: 20px; }
+
+
 /* Core HUD */
 .hud {
 	position: absolute;
