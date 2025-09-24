@@ -14,7 +14,7 @@ div.avatar-placeholder {
     flex: 1;
     overflow-y: auto;
     padding: 15px;
-    margin: 7px 0px 7px 0px;
+    margin: 8px 0px 8px 0px;
     background: rgba(0, 0, 0, 0.15);
     border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -113,9 +113,8 @@ div.avatar-placeholder {
 }
 
 .chat-input:focus {
-	outline: none;
-	border-color: #33FF33;
-	box-shadow: 0 0 4px rgba(51, 255, 51, 0.3);
+    border-color: #006600;
+    box-shadow: 0 0 0.5px rgba(51, 255, 51, 0.25);
 }
 
 .chat-input::placeholder { color: rgba(255, 255, 255, 0.4); }
