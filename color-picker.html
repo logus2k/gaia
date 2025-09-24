@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coloris Dual Format Support</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mdbassit/Coloris@latest/dist/coloris.min.css">
+    <style>
+        :root {
+            --primary-color: #4a6cf7;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --light-bg: #f8f9fa;
+            --dark-text: #333;
+            --border-color: #dee2e6;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--dark-text);
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+        
+        header {
+            background: var(--primary-color);
+            color: white;
+            padding: 25px 30px;
+            text-align: center;
+        }
+        
+        h1 {
+            margin: 0;
+            font-size: 2.2rem;
+            font-weight: 600;
+        }
+        
+        .subtitle {
+            margin-top: 8px;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+            padding: 25px;
+            border-radius: 10px;
+            background: var(--light-bg);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        
+        .section-title {
+            font-size: 1.4rem;
+            color: var(--primary-color);
+            margin-top: 0;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--border-color);
+        }
+        
+        .format-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .format-box {
+            flex: 1;
+            min-width: 250px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .format-label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: var(--dark-text);
+        }
+        
+        .color-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        
+        .color-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.2);
+        }
+        
+        .format-display {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border: 1px solid var(--border-color);
+            font-family: monospace;
+            font-size: 1.1rem;
+            word-break: break-all;
+        }
+        
+        .sync-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px 0;
+            color: var(--success-color);
+            font-weight: 600;
+        }
+        
+        .sync-indicator::before,
+        .sync-indicator::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: var(--border-color);
+        }
+        
+        .sync-indicator::before {
+            margin-right: 10px;
+        }
+        
+        .sync-indicator::after {
+            margin-left: 10px;
+        }
+        
+        .format-switcher {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .format-btn {
+            flex: 1;
+            min-width: 120px;
+            padding: 12px;
+            border: 2px solid var(--border-color);
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        
+        .format-btn.active {
+            border-color: var(--primary-color);
+            background: rgba(74, 108, 247, 0.1);
+            color: var(--primary-color);
+        }
+        
+        .format-btn:hover:not(.active) {
+            background: var(--light-bg);
+        }
+        
+        .color-preview {
+            width: 100%;
+            height: 120px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border: 1px solid var(--border-color);
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .instructions {
+            background: #e8f4fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .instructions h3 {
+            margin-top: 0;
+            color: var(--primary-color);
+        }
+        
+        .instructions ul {
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .format-container {
+                flex-direction: column;
+            }
+            
+            .format-box {
+                min-width: 100%;
+            }
+            
+            .format-switcher {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Coloris Dual Format Support</h1>
+            <p class="subtitle">HEX and RGB formats with alpha channel support</p>
+        </header>
+        
+        <div class="content">
+            <div class="section">
+                <h2 class="section-title">Dual Format Color Picker</h2>
+                
+                <div class="format-container">
+                    <div class="format-box">
+                        <label class="format-label">HEX Format</label>
+                        <input type="text" id="hexInput" class="color-input" data-coloris data-format="hex" value="#ff6b6b80">
+                        <div class="format-display" id="hexDisplay">#ff6b6b80</div>
+                    </div>
+                    
+                    <div class="format-box">
+                        <label class="format-label">RGB Format</label>
+                        <input type="text" id="rgbInput" class="color-input" value="rgba(255, 107, 107, 0.5)">
+                        <div class="format-display" id="rgbDisplay">rgba(255, 107, 107, 0.5)</div>
+                    </div>
+                </div>
+                
+                <div class="sync-indicator">Synced Values</div>
+                
+                <div class="format-switcher">
+                    <button class="format-btn active" data-format="hex">HEX Format</button>
+                    <button class="format-btn" data-format="rgb">RGB Format</button>
+                    <button class="format-btn" data-format="hsl">HSL Format</button>
+                </div>
+                
+                <div class="color-preview" id="colorPreview" style="background-color: rgba(255, 107, 107, 0.5);"></div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">Color Format Converter</h2>
+                
+                <div class="format-container">
+                    <div class="format-box">
+                        <label class="format-label">Input Color</label>
+                        <input type="text" id="converterInput" class="color-input" value="#4ecdc480" placeholder="Enter any color format">
+                        <button id="convertBtn" style="margin-top: 15px; padding: 10px 20px; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer;">Convert Formats</button>
+                    </div>
+                    
+                    <div class="format-box">
+                        <label class="format-label">HEX: <span id="convHex">#4ecdc480</span></label>
+                        <label class="format-label">RGB: <span id="convRgb">rgba(78, 205, 196, 0.5)</span></label>
+                        <label class="format-label">HSL: <span id="convHsl">hsla(174, 59%, 55%, 0.5)</span></label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="instructions">
+                <h3>How to Use This Example</h3>
+                <ul>
+                    <li>The <strong>Dual Format</strong> section shows how to display both HEX and RGB values simultaneously</li>
+                    <li>Changing either input will update the other automatically</li>
+                    <li>The format buttons allow you to change the Coloris picker format</li>
+                    <li>The <strong>Color Format Converter</strong> shows how to convert between different color formats</li>
+                    <li>Alpha channel (transparency) is supported in all formats</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/gh/mdbassit/Coloris@latest/dist/coloris.min.js"></script>
+    <script>
+        // Initialize Coloris for HEX input
+        Coloris({
+            el: '#hexInput',
+            format: 'hex',
+            alpha: true
+        });
+
+        // Current color state
+        let currentColor = '#ff6b6b80';
+
+        // Function to convert HEX to RGBA
+        function hexToRgba(hex) {
+            // Expand shorthand form (e.g. "03F") to full form (e.g. "0033FF")
+            const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+            hex = hex.replace(shorthandRegex, (m, r, g, b) => {
+                return r + r + g + g + b + b;
+            });
+
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})?$/i.exec(hex);
+            
+            if (!result) return null;
+            
+            let r = parseInt(result[1], 16);
+            let g = parseInt(result[2], 16);
+            let b = parseInt(result[3], 16);
+            let a = result[4] ? parseInt(result[4], 16) / 255 : 1;
+            
+            return `rgba(${r}, ${g}, ${b}, ${a.toFixed(2)})`;
+        }
+
+        // Function to convert RGBA to HEX
+        function rgbaToHex(rgba) {
+            const match = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+            if (!match) return '#000000';
+            
+            const r = parseInt(match[1]).toString(16).padStart(2, '0');
+            const g = parseInt(match[2]).toString(16).padStart(2, '0');
+            const b = parseInt(match[3]).toString(16).padStart(2, '0');
+            const a = match[4] ? Math.round(parseFloat(match[4]) * 255).toString(16).padStart(2, '0') : 'ff';
+            
+            return `#${r}${g}${b}${a}`;
+        }
+
+        // Function to convert HEX to HSLA
+        function hexToHsla(hex) {
+            // Expand shorthand form
+            const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+            hex = hex.replace(shorthandRegex, (m, r, g, b) => {
+                return r + r + g + g + b + b;
+            });
+
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})?$/i.exec(hex);
+            
+            if (!result) return null;
+            
+            let r = parseInt(result[1], 16) / 255;
+            let g = parseInt(result[2], 16) / 255;
+            let b = parseInt(result[3], 16) / 255;
+            let a = result[4] ? parseInt(result[4], 16) / 255 : 1;
+            
+            // Calculate HSL
+            let max = Math.max(r, g, b);
+            let min = Math.min(r, g, b);
+            let h, s, l = (max + min) / 2;
+
+            if (max === min) {
+                h = s = 0; // achromatic
+            } else {
+                let d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                    case g: h = (b - r) / d + 2; break;
+                    case b: h = (r - g) / d + 4; break;
+                }
+                h /= 6;
+            }
+
+            h = Math.round(h * 360);
+            s = Math.round(s * 100);
+            l = Math.round(l * 100);
+            
+            return `hsla(${h}, ${s}%, ${l}%, ${a.toFixed(2)})`;
+        }
+
+        // Update displays when HEX input changes
+        document.getElementById('hexInput').addEventListener('input', function() {
+            const hexValue = this.value;
+            currentColor = hexValue;
+            
+            // Update RGB display
+            const rgbaValue = hexToRgba(hexValue);
+            if (rgbaValue) {
+                document.getElementById('rgbInput').value = rgbaValue;
+                document.getElementById('rgbDisplay').textContent = rgbaValue;
+            }
+            
+            // Update preview
+            document.getElementById('colorPreview').style.backgroundColor = rgbaValue;
+        });
+
+        // Update displays when RGB input changes
+        document.getElementById('rgbInput').addEventListener('input', function() {
+            const rgbaValue = this.value;
+            
+            // Update HEX display
+            const hexValue = rgbaToHex(rgbaValue);
+            if (hexValue) {
+                currentColor = hexValue;
+                document.getElementById('hexInput').value = hexValue;
+                document.getElementById('hexDisplay').textContent = hexValue;
+                
+                // Update preview
+                document.getElementById('colorPreview').style.backgroundColor = rgbaValue;
+            }
+        });
+
+        // Format switcher buttons
+        document.querySelectorAll('.format-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Update active state
+                document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Get format
+                const format = this.getAttribute('data-format');
+                
+                // Update Coloris format
+                Coloris({
+                    el: '#hexInput',
+                    format: format,
+                    alpha: true
+                });
+            });
+        });
+
+        // Converter functionality
+        document.getElementById('convertBtn').addEventListener('click', function() {
+            const inputValue = document.getElementById('converterInput').value.trim();
+            
+            // Try to parse as HEX first
+            if (inputValue.startsWith('#')) {
+                const rgba = hexToRgba(inputValue);
+                const hsla = hexToHsla(inputValue);
+                
+                if (rgba && hsla) {
+                    document.getElementById('convHex').textContent = inputValue;
+                    document.getElementById('convRgb').textContent = rgba;
+                    document.getElementById('convHsl').textContent = hsla;
+                }
+            } 
+            // Try to parse as RGB
+            else if (inputValue.startsWith('rgb')) {
+                const hex = rgbaToHex(inputValue);
+                const hsla = hexToHsla(hex);
+                
+                if (hex && hsla) {
+                    document.getElementById('convHex').textContent = hex;
+                    document.getElementById('convRgb').textContent = inputValue;
+                    document.getElementById('convHsl').textContent = hsla;
+                }
+            }
+            // Try to parse as HSL
+            else if (inputValue.startsWith('hsl')) {
+                // For simplicity, we'll just show the input as HSL
+                document.getElementById('convHsl').textContent = inputValue;
+            }
+        });
+
+        // Initialize displays
+        document.getElementById('rgbInput').value = hexToRgba(currentColor);
+        document.getElementById('rgbDisplay').textContent = hexToRgba(currentColor);
+    </script>
+</body>
+</html>

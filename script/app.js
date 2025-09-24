@@ -2249,11 +2249,13 @@ document.getElementById('btn-face-s').addEventListener('click', () => {
 });
 
 
-
-
 document.getElementById('btn-face-0').addEventListener('click', () => {
 	animateCenterOnGlobe(0, 0);
 });
+document.getElementById('btn-face-180').addEventListener('click', () => {
+	animateCenterOnGlobe(0, 180);
+});
+
 
 /*
 document.getElementById('btn-mini-globe').addEventListener('click', () => {

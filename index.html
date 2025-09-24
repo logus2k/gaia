@@ -13,6 +13,22 @@
 	<link rel="stylesheet" href="./style/assistant.css" />
 	<link rel="stylesheet" href="./style/maplibre-gl.css" />
 
+    <!--
+	<style>
+        .inline-color {
+            display: inline-block;
+            margin-left: 10px;
+        }
+        [data-coloris] {
+            width: 40px;
+            height: 40px;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+    </style>
+	-->
+
 	<link rel="icon" href="data:,">
 
 	<script type="importmap">{ "imports": { "three": "./library/three.module.min.js" } }</script>
@@ -144,6 +160,11 @@
 					</span>
 				</div>
 
+
+
+
+
+
 				<div class="row">
 					<label><input id="sel-border-toggle" type="checkbox" class="switch" checked>Highlight</label>
 					<span id="sel-border-color-row" class="inline-color">
@@ -151,6 +172,11 @@
 						<input id="sel-border-hex" type="hidden" value="#FFD34ACC">
 					</span>
 				</div>
+
+
+
+
+
 
 				<div class="row">
 					<label><input id="sel-fill-toggle" type="checkbox" class="switch" checked>Fill</label>
@@ -171,12 +197,9 @@
 
 				<div class="sep2"></div>
 
-				<div class="row"><label><input id="toggle-stars" type="checkbox" class="switch"
-							checked>Background</label></div>
-				<div class="row"><label><input id="toggle-stars-motion" type="checkbox" class="switch"
-							checked>Movement</label></div>
-				<div class="row"><label><input id="sunLightingEnabled" type="checkbox" class="switch">Sun
-						Lighting</label></div>
+				<div class="row"><label><input id="toggle-stars" type="checkbox" class="switch"	checked>Background</label></div>
+				<div class="row"><label><input id="toggle-stars-motion" type="checkbox" class="switch" checked>Movement</label></div>
+				<div class="row"><label><input id="sunLightingEnabled" type="checkbox" class="switch">Sun Lighting</label></div>
 
 				<div class="subgroup" id="stars-controls" aria-live="polite" style="margin-top: 10px;">
 					<div class="control-grid">
@@ -199,10 +222,11 @@
 
 				<div class="sep2"></div>
 
-				<div class="row" style="justify-content: center;">
+				<div class="row">
 					<div class="btnrow nowrap">
 						<button class="btn" id="btn-face-n" title="North Pole">North</button>
 						<button class="btn" id="btn-face-0" title="Prime Meridian (Longitude 0°)">Greenwich</button>
+						<button class="btn" id="btn-face-180" title="International Date Line (Longitude 180°)">IDL</button>
 						<button class="btn" id="btn-face-s" title="South Pole">South</button>
 						<!--
 						<button class="btn" id="btn-mini-globe" title="Mini Globe Control">Mini-Globe</button>
@@ -394,7 +418,7 @@
 						</div>
 						-->
 						<div>Hello! I'm Gaia, your Earth exploration assistant.</div>
-						<div style="margin-top: 8px; opacity: 0.7;">You can ask me anything</div>
+						<div style="margin-top: 8px; opacity: 0.7;"><i>Ask me anything</i></div>
 					</div>
 
 					<!--
@@ -413,7 +437,7 @@
 				<!-- Input Area -->
 				<div class="chat-input-area">
 					<div class="input-row">
-						<textarea id="chat-input" class="chat-input" placeholder="Send your message" rows="2"></textarea>
+						<textarea id="chat-input" class="chat-input" placeholder="How can I help you today?" rows="2"></textarea>
 						<button id="send-button" class="control-btn help-tooltip" data-tooltip="Send">
 							<span class="material-symbols-outlined assistant-menu-button">arrow_circle_up</span>
 						</button>
@@ -1119,6 +1143,18 @@
 		});
 
 	</script>	
+
+    <script src="https://cdn.jsdelivr.net/gh/mdbassit/Coloris@latest/dist/coloris.min.js"></script>
+    <script>
+        // Initialize Coloris with hex format and alpha support
+        Coloris({
+            el: '#sel-border-color',
+            format: 'hex',
+            alpha: true,
+            theme: 'pill',
+            themeMode: 'light'
+        });
+    </script>	
 
 </body>
 
