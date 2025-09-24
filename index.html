@@ -270,34 +270,36 @@
 			<div class="menu-bar">
 
 				<div class="menu-options" style="margin-right: auto; display: flex; gap: 6px;">
-					<button class="menu-btn help-tooltip" data-tooltip="Record voice message"
-						onmousedown="startRecording()" onmouseup="stopRecording()">
+
+					<button class="menu-btn help-tooltip" data-tooltip="TTS" onclick="toggleRecording()" id="mic-toggle-btn">
 						<span class="material-symbols-outlined assistant-menu-button">mic</span>
 					</button>
 
-					<button class="menu-btn help-tooltip" data-tooltip="Replay last response"
-						onclick="replayLastResponse()">
+					<button class="menu-btn help-tooltip" data-tooltip="Replay last response" onclick="replayLastResponse()">
 						<span class="material-symbols-outlined assistant-menu-button">volume_up</span>
 					</button>
 
-					<button class="menu-btn help-tooltip active" data-tooltip="Text-to-Speech enabled"
-						onclick="toggleTTS()">
+					<!--
+					<button class="menu-btn help-tooltip active" data-tooltip="Text-to-Speech enabled" onclick="toggleTTS()">
 						<span class="material-symbols-outlined assistant-menu-button">record_voice_over</span>
 					</button>
 
-					<button class="menu-btn help-tooltip" data-tooltip="Voice activation disabled"
-						onclick="toggleVoiceActivation()">
+					<button class="menu-btn help-tooltip" data-tooltip="Voice activation disabled" onclick="toggleVoiceActivation()">
 						<span class="material-symbols-outlined assistant-menu-button">hearing</span>
 					</button>
 
 					<div style="width: 1px; height: 20px; background: rgba(255,255,255,0.2); margin: 0 4px;"></div>
+					-->
 
 					<button class="menu-btn" onclick="openAudioSettings()" title="Audio & Voice Settings">
 						<span class="material-symbols-outlined assistant-menu-button">tune</span>
 					</button>
+					
+					<!--
 					<button class="menu-btn" onclick="openHelp()" title="Help & Controls">
 						<span class="material-symbols-outlined assistant-menu-button">help</span>
 					</button>
+					-->
 				</div>
 
 				<div style="display: flex; align-items: center; gap: 4px; margin-right: 10px;">
@@ -415,9 +417,9 @@
 				<!-- Input Area -->
 				<div class="chat-input-area">
 					<div class="input-row">
-						<textarea id="chat-input" class="chat-input" placeholder="Ask anything" rows="2"></textarea>
-						<button id="send-button" class="control-btn help-tooltip" data-tooltip="Send message">
-							<span class="material-symbols-outlined assistant-menu-button">send</span>
+						<textarea id="chat-input" class="chat-input" placeholder="Send your message" rows="2"></textarea>
+						<button id="send-button" class="control-btn help-tooltip" data-tooltip="Send">
+							<span class="material-symbols-outlined assistant-menu-button">arrow_circle_up</span>
 						</button>
 					</div>
 				</div>
@@ -563,7 +565,7 @@
 			}
 		};
 
-		const { send, cancel } = await initLLM({
+		const { client, send, cancel, getThreadId } = await initLLM({
 			url: "http://localhost:7701",
 			agent: "topic",
 			onStarted: ui.started,
@@ -604,7 +606,499 @@
 
 		cancelBtn?.addEventListener("click", () => cancel());
 
+
+
+		import { AudioResampler } from "./script/audioResampler.js";
+
+		const STT_URL = "http://localhost:2700";
+		const agentName = typeof agent === "string" ? agent : "topic";
+
+		let sttSocket = null;
+		let audioCtx = null;
+		let mediaStream = null;
+		let sourceNode = null;
+		let workletNode = null;
+		let resampler = null;
+		let isRecording = false;
+
+		// Server-side STT subscription
+		async function ensureSttSubscribed() {
+			const threadId = getThreadId();
+			await client.sttSubscribe({
+				sttUrl: STT_URL,
+				clientId: window.__clientId || (window.__clientId = (crypto.randomUUID?.() || Math.random().toString(36).slice(2))),
+				agent: agentName,
+				threadId
+			});
+			console.log("[STT] Subscribed with threadId:", threadId);
+		}
+
+		// Direct socket to STT service for audio frames and transcripts
+		async function ensureSttSocket() {
+			if (sttSocket && sttSocket.connected) return;
+			sttSocket = io(STT_URL, { transports: ["websocket"] });
+			await new Promise((resolve, reject) => {
+				sttSocket.once("connect", () => {
+					console.log("[STT] Socket connected");
+					resolve();
+				});
+				sttSocket.once("connect_error", reject);
+			});
+			
+			// Subscribe this client to receive transcripts directly
+			// subscribeSttClient();
+			
+			// Listen for transcripts from the STT server
+			setupTranscriptListeners();
+		}
+		
+		// Subscribe this client to receive transcript events
+		function subscribeSttClient() {
+			if (!sttSocket || !sttSocket.connected) return;
+			
+			// Subscribe to receive transcripts for our clientId
+			sttSocket.emit("subscribe", {
+				clientId: window.__clientId,
+				type: "transcripts"
+			});
+			
+			console.log("[STT] Client subscribed to transcripts for clientId:", window.__clientId);
+			
+			// Alternative subscription methods (try different approaches)
+			// Some STT servers might use different subscription patterns
+			/*
+			sttSocket.emit("join", window.__clientId);
+			sttSocket.emit("subscribe_transcripts", { clientId: window.__clientId });
+			sttSocket.emit("register", { clientId: window.__clientId });
+			*/
+		}
+
+		// Set up listeners for STT transcripts
+		function setupTranscriptListeners() {
+			if (!sttSocket) return;
+			
+			// Remove any existing listeners to avoid duplicates
+			//sttSocket.off('transcript');
+			//sttSocket.off('final_transcript');
+			//sttSocket.off('transcription');
+			//sttSocket.off('interim_transcript');
+			
+			/*
+			// Listen for transcript events from STT server
+			sttSocket.on('transcript', (data) => {
+				console.log('[STT] Transcript event:', data);
+				handleTranscript(data, false);
+			});
+			
+
+			sttSocket.on('interim_transcript', (data) => {
+				console.log('[STT] Interim transcript:', data);
+				handleTranscript(data, false);
+			})			
+
+			sttSocket.on('final_transcript', (data) => {
+				console.log('[STT] Final transcript:', data);
+				handleTranscript(data, true);
+			});			
+		
+			
+			// Some STT servers send events with clientId
+			sttSocket.on(`transcript_${window.__clientId}`, (data) => {
+				console.log('[STT] Client-specific transcript:', data);
+				handleTranscript(data, true);
+			});
+			
+			// Generic message handler for debugging unknown event types
+			sttSocket.onAny((eventName, ...args) => {
+				if (!eventName.includes('audio') && !eventName.includes('pong')) {
+					console.log(`[STT] Event '${eventName}':`, args);
+				}
+			});
+			*/
+
+
+			sttSocket.on('transcription', (data) => {
+				console.log('[STT] Transcription:', data);
+				handleTranscript(data, true);
+			});
+
+			
+		}
+
+		/*
+		function setupTranscriptListeners() {
+			if (!sttSocket) return;
+
+			// Clear everything first
+			sttSocket.off('transcript');
+			sttSocket.off('final_transcript');
+			sttSocket.off('transcription');
+			sttSocket.off('interim_transcript');
+			sttSocket.off(`transcript_${window.__clientId}`);
+
+			// ✅ Keep only these two
+			sttSocket.on('interim_transcript', (data) => {
+				console.log('[STT] Interim transcript:', data);
+				handleTranscript(data, false);
+			});
+
+			sttSocket.on('final_transcript', (data) => {
+				console.log('[STT] Final transcript:', data);
+				handleTranscript(data, true);
+			});
+
+			// ❌ Remove/keep commented: these often mirror the same content
+			// sttSocket.on('transcript', (data) => handleTranscript(data, false));
+			// sttSocket.on('transcription', (data) => handleTranscript(data, true));
+			// sttSocket.on(`transcript_${window.__clientId}`, (data) => handleTranscript(data, true));
+
+			// Optional debug: comment out in prod
+			// sttSocket.onAny((eventName, ...args) => {
+			// 	if (!eventName.includes('audio') && !eventName.includes('pong')) {
+			// 		console.log(`[STT] Event '${eventName}':`, args);
+			// 	}
+			// });
+		}	
+		*/	
+
+
+		
+		let lastTranscriptBubble = null;
+		let transcriptTimeout = null;
+		
+		// Handle incoming transcripts
+		function handleTranscript(data, isFinal = false) {
+			// Extract text from various possible data structures
+			const text = data?.text || 
+						data?.transcript || 
+						data?.transcription || 
+						(typeof data === 'string' ? data : '');
+			
+			if (!text || !text.trim()) return;
+			
+			console.log(`[STT] ${isFinal ? 'Final' : 'Interim'} transcript:`, text);
+			
+			window.addMessage('user', text);
+			
+			/*
+			if (isFinal) {
+				// Final transcript - add as a complete user message
+				if (lastTranscriptBubble) {
+					// Update existing bubble with final text
+					lastTranscriptBubble.textContent = text;
+				} else {
+					// Create new bubble
+					window.addMessage('user', text);
+				}
+				lastTranscriptBubble = null;
+				
+				// Clear any pending timeout
+				if (transcriptTimeout) {
+					clearTimeout(transcriptTimeout);
+					transcriptTimeout = null;
+				}
+			}
+			else {
+				// Interim transcript - update existing bubble or create new one
+				if (!lastTranscriptBubble) {
+					lastTranscriptBubble = window.addMessage('user', text + '...');
+				} else {
+					lastTranscriptBubble.textContent = text + '...';
+				}
+				
+				// Set timeout to finalize if we don't get more transcripts
+				if (transcriptTimeout) {
+					clearTimeout(transcriptTimeout);
+				}
+				transcriptTimeout = setTimeout(() => {
+					if (lastTranscriptBubble) {
+						// Remove the "..." to finalize
+						const finalText = lastTranscriptBubble.textContent.replace(/\.{3,}$/, '');
+						lastTranscriptBubble.textContent = finalText;
+						lastTranscriptBubble = null;
+					}
+				}, 2000);
+			}
+			*/
+		}
+
+		async function startRecording() {
+			if (isRecording) return;
+			
+			console.log("[STT] Starting recording...");
+			isRecording = true;
+
+			try {
+				// 1) Subscribe to STT service
+				await ensureSttSubscribed();
+
+				// 2) Connect socket for audio data
+				await ensureSttSocket();
+
+				// 3) Get microphone access
+				mediaStream = await navigator.mediaDevices.getUserMedia({
+					audio: {
+						channelCount: 1,
+						echoCancellation: true,
+						noiseSuppression: true,
+						autoGainControl: false
+					}
+				});
+				console.log("[STT] Got media stream");
+
+				// 4) Create audio context
+				audioCtx = new (window.AudioContext || window.webkitAudioContext)({
+					sampleRate: 48000,
+					latencyHint: "interactive"
+				});
+				console.log("[STT] Audio context created, sample rate:", audioCtx.sampleRate);
+
+				// 5) Load worklet and set up audio graph
+				await audioCtx.audioWorklet.addModule("./script/recorder.worklet.js");
+				sourceNode = audioCtx.createMediaStreamSource(mediaStream);
+				workletNode = new AudioWorkletNode(audioCtx, "recorder-worklet", {
+					numberOfInputs: 1,
+					numberOfOutputs: 0,
+					channelCount: 1,
+					channelCountMode: "explicit"
+				});
+				sourceNode.connect(workletNode);
+				console.log("[STT] Audio graph connected");
+
+				// 6) Create resampler (48kHz -> 16kHz)
+				resampler = new AudioResampler(audioCtx.sampleRate, 16000);
+
+				// 7) Process audio in ~100ms chunks
+				let pending = [];
+				let pendingLength = 0;
+				const PACKET_MS = 100;
+				const sampleRate = audioCtx.sampleRate;
+				let packetsProcessed = 0;
+
+				workletNode.port.onmessage = (e) => {
+					// Skip if we stopped recording
+					if (!isRecording) return;
+
+					const chunk = e.data;
+					if (!chunk || !chunk.length) return;
+					
+					pending.push(chunk);
+					pendingLength += chunk.length;
+
+					const samplesPerPacket = Math.round(sampleRate * (PACKET_MS / 1000));
+					
+					if (pendingLength >= samplesPerPacket) {
+						// Merge buffered chunks
+						const merged = new Float32Array(pendingLength);
+						let offset = 0;
+						for (const part of pending) {
+							merged.set(part, offset);
+							offset += part.length;
+						}
+						
+						// Reset buffer
+						pending = [];
+						pendingLength = 0;
+
+						// Safety check
+						if (!isRecording || !resampler || !sttSocket) return;
+
+						try {
+							// Resample to 16kHz
+							const pcm16 = resampler.pushFloat32(merged);
+							
+							if (pcm16 && pcm16.length > 0 && sttSocket.connected) {
+								// Send audio to STT server
+								sttSocket.emit("audio_data", {
+									clientId: window.__clientId,
+									audioData: pcm16.buffer
+								});
+								
+								packetsProcessed++;
+								if (packetsProcessed === 1) {
+									console.log("[STT] First audio packet sent - recording active");
+								} else if (packetsProcessed % 10 === 0) {
+									console.log(`[STT] Sent ${packetsProcessed} packets`);
+								}
+							}
+						} catch (err) {
+							console.error("[STT] Error processing audio:", err);
+						}
+					}
+				};
+
+				// Start worklet processing
+				workletNode.port.start();
+
+				// Update button appearance
+				updateMicButton(true);
+				
+				console.log("[STT] Recording started successfully");
+
+			} catch (err) {
+				console.error("[STT] Failed to start recording:", err);
+				isRecording = false;
+				updateMicButton(false);
+				await stopRecording();
+			}
+		}
+
+		async function stopRecording() {
+			if (!isRecording && !audioCtx && !mediaStream) return;
+			
+			console.log("[STT] Stopping recording...");
+			isRecording = false;
+
+			try {
+				// Clear worklet message handler first
+				if (workletNode && workletNode.port) {
+					workletNode.port.onmessage = null;
+					try { workletNode.port.close(); } catch {}
+				}
+
+				// Disconnect audio nodes
+				if (sourceNode) {
+					try { sourceNode.disconnect(); } catch {}
+				}
+				if (workletNode) {
+					try { workletNode.disconnect(); } catch {}
+				}
+
+				// Stop media tracks
+				if (mediaStream) {
+					mediaStream.getTracks().forEach(track => {
+						try { track.stop(); } catch {}
+					});
+				}
+
+				// Close audio context
+				if (audioCtx && audioCtx.state !== 'closed') {
+					try { await audioCtx.close(); } catch {}
+				}
+
+				// Reset resampler
+				if (resampler) {
+					try { resampler.reset(); } catch {}
+				}
+
+				// Update button appearance
+				updateMicButton(false);
+				
+				console.log("[STT] Recording stopped");
+
+			} finally {
+				// Clear all references
+				audioCtx = null;
+				sourceNode = null;
+				workletNode = null;
+				resampler = null;
+				mediaStream = null;
+			}
+		}
+
+		function updateMicButton(recording) {
+			const micBtn = document.querySelector('#mic-toggle-btn');
+			if (!micBtn) return;
+			
+			const icon = micBtn.querySelector('.material-symbols-outlined');
+			
+			if (recording) {
+				micBtn.classList.add('recording');
+				micBtn.setAttribute('data-tooltip', 'Stop recording');
+				if (icon) icon.textContent = 'stop_circle';
+			} else {
+				micBtn.classList.remove('recording');
+				micBtn.setAttribute('data-tooltip', 'Start recording');
+				if (icon) icon.textContent = 'mic';
+			}
+		}
+
+		// Toggle function for the button
+		async function toggleRecording() {
+			if (isRecording) {
+				await stopRecording();
+			} else {
+				await startRecording();
+			}
+		}
+
+		
+		
+		/*
+		// Listen for transcripts from the STT server
+		function setupTranscriptListener() {
+			// The AgentClient should handle incoming transcripts
+			// We need to listen for transcript events to display them in the UI
+			
+			// Since the agent server handles the STT subscription,
+			// transcripts will trigger the assistant's response automatically.
+			// But we also want to show what the user said.
+			
+			// If your STT server sends transcripts directly, listen for them:
+			if (sttSocket) {
+				sttSocket.on('transcript', (data) => {
+					const text = data?.text || data?.transcript;
+					if (text && text.trim()) {
+						console.log("[STT] Transcript received:", text);
+						// Add the transcribed text as a user message
+						window.addMessage('user', text);
+					}
+				});
+				
+				sttSocket.on('final_transcript', (data) => {
+					const text = data?.text || data?.transcript;
+					if (text && text.trim()) {
+						console.log("[STT] Final transcript:", text);
+						// Add or update the user message
+						window.addMessage('user', text);
+					}
+				});
+			}
+		}
+		*/
+		
+		// Modify ensureSttSocket to set up transcript listeners
+		/*
+		const originalEnsureSttSocket = ensureSttSocket;
+		window.ensureSttSocket = async function() {
+			await originalEnsureSttSocket();
+			setupTranscriptListener();
+		};
+		*/
+
+		// Make functions globally available
+		window.toggleRecording = toggleRecording;
+		window.startRecording = startRecording;
+		window.stopRecording = stopRecording;
+
+		// Add CSS for recording state (if not already in your styles)
+		const style = document.createElement('style');
+		style.textContent = `
+			.menu-btn.recording {
+				background: rgba(255, 67, 54, 0.2);
+				border-color: #ff4336;
+			}
+			.menu-btn.recording .material-symbols-outlined {
+				color: #ff4336;
+				animation: pulse 1.5s infinite;
+			}
+			@keyframes pulse {
+				0% { opacity: 1; }
+				50% { opacity: 0.6; }
+				100% { opacity: 1; }
+			}
+		`;
+		document.head.appendChild(style);
+
+
+
+
+
+
 	</script>
+
+
+
 
 	<script type="module">
 

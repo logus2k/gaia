@@ -55,15 +55,15 @@ div.avatar-placeholder {
 }
 
 .message.user .message-bubble {
-	background: rgba(255, 176, 0, 0.08);
+	background: #67470033;
 	border: 1px solid rgba(255, 176, 0, 0.1);
-	color: #FFB000;
+	color: #fec442;
 }
 
 .message.assistant .message-bubble {
 	background: rgba(51, 255, 51, 0.02);
 	border: 1px solid rgba(51, 255, 51, 0.1);
-	color: #33FF33;
+	color: #8aff8a;
 }
 
 .message-time {
@@ -138,6 +138,24 @@ div.avatar-placeholder {
 .control-btn:hover {
 	background: rgba(255, 255, 255, 0.12);
 	color: #FFB000;
+}
+
+#send-button {
+    border: 0px;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #33FF33;
+}
+
+#send-button:hover {
+	color: #FFB000;
+}
+
+#send-button > span {
+	font-size: 28px;
 }
 
 .control-btn.active {
