@@ -1772,9 +1772,12 @@ function updateSpeedReadout(radPerSec) {
 	speedReadout.textContent = `${sign}${Math.abs(dps).toFixed(2)}°/s`;
 	const v_kms = Math.abs(radPerSec) * SETTINGS.earthRadiusKm, v_kmh = v_kms * 3600;
 	const period = (Math.abs(radPerSec) < 1e-6) ? Infinity : (2 * Math.PI / Math.abs(radPerSec));
-	const periodLabel = period && period !== Infinity ? `· ${formatPeriod(period)} period` : "";
-	// speedReadoutKm.textContent = `${v_kms.toFixed(0)} km/s · ${Math.round(v_kmh)} km/h${periodLabel}`;
-	speedReadoutKm.textContent = `${Math.round(v_kms).toLocaleString('en-US')} km/s · ${Math.round(v_kmh).toLocaleString('en-US')} km/h${periodLabel}`;
+
+	const v_kms_formatted = Math.round(v_kms).toLocaleString("en-US");
+	const v_kmh_formatted = Math.round(v_kmh).toLocaleString("en-US")
+	const period_formatted = period && period !== Infinity ? ` · ${formatPeriod(period)} period` : "";
+
+	speedReadoutKm.textContent = `${v_kms_formatted} km/s · ${v_kmh_formatted} km/h${period_formatted}`;
 }
 updateSpeedReadout(autorotateSpeed);
 speedInput.addEventListener('input', () => { autorotateSpeed = parseFloat(speedInput.value); updateSpeedReadout(autorotateSpeed); });

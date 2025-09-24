@@ -200,13 +200,16 @@
 
 /* Title + dragging feedback */
 .hud h1 {
-	font-size: 14px;
-	margin: 0px 8px 0px 8px;
-	font-weight: 700;
-	letter-spacing: .2px;
-	color: var(--hud-warm);
-	text-shadow: 0 1px 0 rgba(0, 0, 0, .45);
-	line-height: 1.2;
+    font-size: 14px;
+    margin: 0px 8px 0px 8px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    color: var(--hud-warm);
+    /* text-shadow: 0 1px 0 rgba(0, 0, 0, .45); */
+    /* line-height: 1.2; */
+    /* height: 24px; */
+    margin: 0px 0px 0px 0px;
+    padding: 5px 30px 5px 5px;
 }
 
 /* Ensure all HUD panels have consistent base behavior */
@@ -342,16 +345,16 @@
 
 /* Summary: icons right; full-row clickable; 10px LR padding */
 summary {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 8px;
-	cursor: pointer;
-	padding: 8px 10px;
-	list-style: none;
-	user-select: none;
-	color: #e8e8e8;
-	font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    cursor: pointer;
+    padding: 8px 10px;
+    list-style: none;
+    user-select: none;
+    color: #2cd52c;
+    font-size: 13px;
 }
 
 summary::-webkit-details-marker {
@@ -403,9 +406,9 @@ summary::-webkit-details-marker {
 }
 
 .sep {
-	height: 1px;
+	height: 0.5px;
 	background: rgba(255, 255, 255, .12);
-	margin: 10px 0;
+	margin: 0px;
 }
 
 .inline-controls {
@@ -602,28 +605,23 @@ div.results::-webkit-scrollbar-thumb:hover {
 }
 
 
-/* Compact toggle switch (default 36x20) */
 input.switch {
-	--sw-w: 36px;
-	/* width  */
-	--sw-h: 20px;
-	/* height */
-	--sw-pad: 2px;
-	/* knob side padding */
-	--sw-knob: calc(var(--sw-h) - 2*var(--sw-pad));
-
-	appearance: none;
-	-webkit-appearance: none;
-	width: var(--sw-w);
-	height: var(--sw-h);
-	border-radius: calc(var(--sw-h)/2);
-	background: rgba(255, 255, 255, .14);
-	border: 1px solid rgba(255, 255, 255, .28);
-	position: relative;
-	cursor: pointer;
-	outline: none;
-	transition: background .2s ease, border-color .2s ease, box-shadow .2s ease;
-	vertical-align: middle;
+    --sw-w: 28px;
+    --sw-h: 17px;
+    --sw-pad: 3px;
+    --sw-knob: calc(var(--sw-h) - 2*var(--sw-pad));
+    appearance: none;
+    -webkit-appearance: none;
+    width: var(--sw-w);
+    height: var(--sw-h);
+    border-radius: calc(var(--sw-h)/2);
+    background: rgba(255, 255, 255, 0);
+    border: 0.5px solid rgba(255, 255, 255, .30);
+    position: relative;
+    cursor: pointer;
+    outline: none;
+    transition: background .2s ease, border-color .2s ease, box-shadow .2s ease;
+    vertical-align: middle;
 }
 
 input.switch::after {

@@ -212,6 +212,9 @@ export class AgentClient {
 	 * @returns {Promise<void>}
 	 */
 	sttSubscribe(args) {
+
+		console.log("*** STT SUBSCRIPTION CALL *** -> via sttSubscribe in agentClient.js: ", args);
+
 		if (!this.socket || !this.socket.connected) {
 			return Promise.reject(Object.assign(new Error("Not connected"), { code: "NOT_CONNECTED" }));
 		}

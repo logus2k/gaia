@@ -180,7 +180,7 @@
 				<div class="subgroup" id="stars-controls" aria-live="polite" style="margin-top: 10px;">
 					<div class="control-grid">
 						<label for="skyBright">Brightness</label>
-						<div class="readout" style="width: 165px;">
+						<div class="readout" style="width: 140px;">
 							<small id="sky-bright-readout">3%</small>
 						</div>
 					</div>
@@ -214,7 +214,7 @@
 					<div class="control-grid">
 						<label for="speed">Spin&nbsp;Speed</label>
 						<div class="readout">
-							<div style="width: 160px;">
+							<div style="width: 135px;">
 								<small id="speed-readout">±0.00°/s</small>
 							</div>
 						</div>
@@ -551,7 +551,7 @@
 			},
 			stream(text) {
 				if (!activeAssistantBubble) {
-					// safety: if a stream sneaks in without started(), create one
+					// if a stream sneaks in without started(), create one
 					activeAssistantBubble = window.addMessage('assistant', '');
 				}
 				activeAssistantBubble.textContent = text;
@@ -652,6 +652,7 @@
 			setupTranscriptListeners();
 		}
 		
+		/*
 		// Subscribe this client to receive transcript events
 		function subscribeSttClient() {
 			if (!sttSocket || !sttSocket.connected) return;
@@ -666,12 +667,13 @@
 			
 			// Alternative subscription methods (try different approaches)
 			// Some STT servers might use different subscription patterns
-			/*
-			sttSocket.emit("join", window.__clientId);
-			sttSocket.emit("subscribe_transcripts", { clientId: window.__clientId });
-			sttSocket.emit("register", { clientId: window.__clientId });
-			*/
+			
+			//sttSocket.emit("join", window.__clientId);
+			//sttSocket.emit("subscribe_transcripts", { clientId: window.__clientId });
+			//sttSocket.emit("register", { clientId: window.__clientId });
+			
 		}
+		*/
 
 		// Set up listeners for STT transcripts
 		function setupTranscriptListeners() {
@@ -736,7 +738,6 @@
 			sttSocket.off('interim_transcript');
 			sttSocket.off(`transcript_${window.__clientId}`);
 
-			// ✅ Keep only these two
 			sttSocket.on('interim_transcript', (data) => {
 				console.log('[STT] Interim transcript:', data);
 				handleTranscript(data, false);
@@ -747,7 +748,6 @@
 				handleTranscript(data, true);
 			});
 
-			// ❌ Remove/keep commented: these often mirror the same content
 			// sttSocket.on('transcript', (data) => handleTranscript(data, false));
 			// sttSocket.on('transcription', (data) => handleTranscript(data, true));
 			// sttSocket.on(`transcript_${window.__clientId}`, (data) => handleTranscript(data, true));
@@ -918,7 +918,7 @@
 								if (packetsProcessed === 1) {
 									console.log("[STT] First audio packet sent - recording active");
 								} else if (packetsProcessed % 10 === 0) {
-									console.log(`[STT] Sent ${packetsProcessed} packets`);
+									// console.log(`[STT] Sent ${packetsProcessed} packets`);
 								}
 							}
 						} catch (err) {
