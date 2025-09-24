@@ -30,6 +30,9 @@ export class MenuManager {
         this.moveables = new Map();
         this.topZ = 10;
 
+        this.tx = 0;
+        this.ty = 0;
+
         this.#initMenu();
         this.#initPanels();
         this.#applyInitialVisibility();
@@ -146,15 +149,9 @@ export class MenuManager {
 
         const mv = new Moveable(root, {
             target: panel,
-            container: document.body,
             draggable: true,
             resizable: isResizable,
-            origin: false,
-            // renderDirections: isResizable ? ['nw','n','ne','e','se','s','sw','w'] : [],
-            keepRatio: false,
-            throttleDrag: 0,
-            throttleResize: 0,
-            snappable: false,
+            origin: false
         });
 
         let allowDrag = false;
@@ -181,6 +178,38 @@ export class MenuManager {
             // console.log('Drag end:', id);
         });
 
+
+
+        
+        if (isResizable) {
+            mv.on('resizeStart', e => {
+                // make Moveable compute translations relative to the current transform
+                e.setOrigin(['%', '%']);            // don’t shift around the origin unexpectedly
+                if (e.dragStart) e.dragStart.set([this.tx, this.ty]);
+            });
+
+            mv.on('resize', e => {
+                const { target, width, height, drag } = e;
+                const [bx, by] = drag.beforeTranslate; // THIS is the key part
+
+                // apply size
+                target.style.width = `${width}px`;
+                target.style.height = `${height}px`;
+
+                // apply translation so the grabbed handle tracks the cursor
+                target.style.transform = `translate(${bx}px, ${by}px)`;
+
+                // keep local state in sync (optional but recommended)
+                [this.tx, this.ty] = [bx, by];
+            });
+        }
+
+
+
+
+
+
+        /*
         if (isResizable) {
             mv.on('resizeStart', ({ inputEvent }) => {
                 // console.log('Resize start:', id, inputEvent.target.className);
@@ -203,6 +232,13 @@ export class MenuManager {
                 // console.log('Resize end:', id);
             });
         }
+        */
+
+
+
+
+
+
 
         this.moveables.set(panel, mv);
         // console.log(`Created new Moveable for panel: ${id}`);

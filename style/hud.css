@@ -10,7 +10,7 @@
 	--hud-shadow-strong: 0 16px 42px rgba(0, 0, 0, .65);
 }
 
-/* Base state - invisible */
+/* Moveable.js CSS rules */
 .rCS1w3zcxh {
     --moveable-color: transparent !important;
 }
@@ -24,24 +24,10 @@
     transition: all 0.2s ease;
 }
 
-
-/* Cursor styles for resize handles - ADD THIS */
-/*
-.moveable-n, .moveable-s { cursor: ns-resize !important; }
-.moveable-e, .moveable-w { cursor: ew-resize !important; }
-.moveable-nw, .moveable-se { cursor: nwse-resize !important; }
-.moveable-ne, .moveable-sw { cursor: nesw-resize !important; }
-*/
-
-
-/* Make resize handles larger and easier to grab - ADD THIS */
 .moveable-line {
-    width: 20px !important;  /* Increase from default */
+    width: 20px !important;
     height: 20px !important;
 }
-
-
-
 
 /* Core HUD */
 .hud {
@@ -59,20 +45,12 @@
 	box-shadow: var(--hud-shadow), inset 0 1px 0 rgba(255, 255, 255, .06);
 	z-index: 10;
 	min-width: 260px;
-	/* reasonable minimum */
 	max-width: 92vw;
-	/* allow wider panels if resized */
 	width: auto;
 	min-height: 160px;
 	font: 12px Verdana, Geneva, Tahoma, sans-serif;
-	/*
-	transform: none;
-	will-change: opacity, transform, background, box-shadow;
-	transition: background .35s ease, box-shadow .35s ease, border-color .35s ease;
-	*/
 	box-sizing: border-box;
 	overflow: auto;
-	/* resize: none !important; */
 }
 
 .hud:hover,
@@ -235,10 +213,6 @@
 /* Make only the h1 draggable (visual hint) */
 .hud h1 {
     cursor: move;
-}
-
-.hud h1:active {
-    cursor: grabbing;
 }
 
 .hud.dragging {
@@ -446,6 +420,7 @@ summary::-webkit-details-marker {
 input[type="range"] {
 	width: 100%;
 	box-sizing: border-box;
+	cursor: grab;
 }
 
 input[type="color"] {
