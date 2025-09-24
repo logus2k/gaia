@@ -1523,7 +1523,7 @@ const globeHexInput = document.getElementById('globeHex');
 const chkStarsMotion = document.getElementById('toggle-stars-motion');
 const chkClouds = document.getElementById('toggle-clouds');
 
-const cloudsAdditiveChk = document.getElementById('clouds-additive');
+// const cloudsAdditiveChk = document.getElementById('clouds-additive');
 const chkAtmo = document.getElementById('toggle-atmo');
 const atmoColorRow = document.getElementById('atmoColorRow');
 const atmoColorPick = document.getElementById('atmoColorPick');
@@ -1618,6 +1618,9 @@ bordersHex.addEventListener('input', () => {
 });
 
 // Atmosphere toggle & color controls
+chkAtmo.checked = false;
+atmosphere.visible = false;
+atmoColorRow.classList.toggle('hidden', !chkAtmo.checked);
 chkAtmo.addEventListener('change', () => { atmosphere.visible = chkAtmo.checked; atmoColorRow.classList.toggle('hidden', !chkAtmo.checked); });
 (function initAtmoControls() {
 	const p = parseHexRGBA(atmoHex.value) || { rgb: ATMO.color, a: 1.0 };
@@ -1665,6 +1668,7 @@ graticuleHex.addEventListener('input', () => {
 chkClouds.addEventListener('change', () => { clouds.visible = chkClouds.checked; });
 clouds.visible = chkClouds.checked;
 
+/*
 cloudsAdditiveChk.addEventListener('change', () => {
 	const useUnlit = cloudsAdditiveChk.checked;
 	const mat = useUnlit ? cloudsMatUnlit : cloudsMatLit;
@@ -1673,6 +1677,7 @@ cloudsAdditiveChk.addEventListener('change', () => {
 	mat.needsUpdate = true;
 	clouds.material = mat;
 });
+*/
 
 
 // Labels toggle

@@ -1,7 +1,7 @@
 :root {
 	--hud-accent: #33FF33;
 	--hud-warm: #FFB000;
-	--hud-fg: #e8e8e8;
+	--hud-fg: #c6c4c4;
 	--hud-fg-dim: #cfcfcf;
 	--hud-bg: rgba(12, 14, 24, .58);
 	--hud-bg-hover: rgba(8, 10, 24, .85);
@@ -134,7 +134,14 @@
 }
 
 .hud.settings .btn {
-	padding: 6px 8px;
+    padding: 5px 10px;
+    color: var(--hud-accent);
+    background-color: transparent;
+}
+
+.hud.settings .btn:hover {
+    color: var(--hud-warm);
+    background-color: #000000;
 }
 
 /* minor trim to keep 4 buttons on one line */
@@ -178,7 +185,7 @@
 .hud.callout .calloutSubRegion {
 	font-size: 12px;
 	font-weight: 500;
-	color: var(--hud-warm);
+	color: #00ff00;
 }
 
 .hud.callout .calloutNotes {
@@ -186,7 +193,7 @@
 	text-align: right;
 	font-family: 'Roboto';
 	font-size: 11px;
-	color: var(--hud-accent);
+	color: #00ff00;
 	opacity: .95;
 }
 
@@ -257,7 +264,7 @@
 }
 
 [id^="hud-"].visible:hover {
-	color: var(--hud-warm);
+	color: var(--hud-accent);
 	background: var(--hud-bg-hover);
 	opacity: .98;
 }
@@ -334,13 +341,14 @@
 /* Groups (collapsible sections) */
 .group {
 	margin: 8px 0;
-	border-radius: 8px;
-	padding-bottom: 8px;
+	border-radius: 6px;
+	padding: 0px 5px 8px 5px;
 }
 
 .group[open] {
-	background: rgba(255, 255, 255, .03);
-	border: 1px solid rgba(255, 255, 255, .08);
+    background: rgba(255, 255, 255, .03);
+    border: 1px solid rgba(255, 255, 255, .08);
+    padding: 0px 5px 8px 5px;
 }
 
 /* Summary: icons right; full-row clickable; 10px LR padding */
@@ -350,10 +358,10 @@ summary {
     justify-content: space-between;
     gap: 8px;
     cursor: pointer;
-    padding: 8px 10px;
+    padding: 5px;
     list-style: none;
     user-select: none;
-    color: #2cd52c;
+    color: var(--hud-warm);
     font-size: 13px;
 }
 
@@ -391,11 +399,11 @@ summary::-webkit-details-marker {
 
 /* Controls / UI */
 .row {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 8px;
-	margin: 8px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 4px 0px 0px 0px;
 }
 
 .row label {
@@ -442,9 +450,8 @@ input[type="range"] {
 
 input[type="color"] {
 	width: 40px;
-	height: 24px;
+	height: 22px;
 	padding: 0;
-	border: 0.5px solid #cccccc47;
 	border-radius: 3px;
 	background: transparent;
 }
@@ -470,8 +477,20 @@ input[type="search"] {
 	font-size: 11px;
 }
 
-.readout small {
-	opacity: .85;
+.readout.brightness {
+    padding-right: 54px;
+    vertical-align: middle;
+}
+
+.readout.spin {
+    padding-right: 17px;
+    vertical-align: middle;
+}
+
+.readout.speed {
+    padding-right: 3px;
+    vertical-align: middle;
+	text-wrap: nowrap;
 }
 
 .scale-labels {
@@ -622,6 +641,7 @@ input.switch {
     outline: none;
     transition: background .2s ease, border-color .2s ease, box-shadow .2s ease;
     vertical-align: middle;
+    margin-left: 0px;
 }
 
 input.switch::after {
@@ -672,12 +692,11 @@ input.switch.xs {
 div.sep2 {
 	height: 0.5px;
 	background: rgba(255, 255, 255, .12);
-	margin: 0px 4px 10px 4px;
+	margin: 0px 5px 10px 5px;
 }
 
-/* Seamless HUD select (no white edge when the native popup opens) */
 .select-hud {
-	--seam-bleed: 2px;
+	--seam-bleed: 1px;
 	--sel-bg: rgba(255, 255, 255, .08);
 	--sel-bg-hover: rgba(255, 255, 255, .14);
 	border-radius: 6px;
@@ -723,7 +742,7 @@ div.sep2 {
 	padding: 6px 32px 6px 10px;
 	outline: 0;
 	background: transparent !important;
-	color: #fff;
+	color: #33c433;
 	font-size: 11px;
 	line-height: 1.2;
 }
@@ -739,16 +758,14 @@ div.sep2 {
 }
 
 .select-hud .select-caret {
-	position: absolute;
-	right: 8px;
-	top: 50%;
-	transform: translateY(-52%);
-	font-size: 18px;
-	/* smaller than section summary icons */
-	line-height: 1;
-	opacity: .9;
-	pointer-events: none;
-	/* don’t block clicks */
+    position: absolute;
+    right: 5px;
+    top: 51%;
+    transform: translateY(-52%);
+    font-size: 18px;
+    line-height: 1;
+    opacity: .9;
+    pointer-events: none;
 }
 
 /* Add a bit of right padding so text doesn't collide with the icon */
@@ -774,27 +791,8 @@ div.sep2 {
 
 		.select-hud select option,
 		.select-hud select optgroup {
-			color: #e8e8e8;
+			color: var(--hud-accent);
 			background: #0b0f1a;
 		}
-	}
-}
-
-@media (forced-colors: active) {
-
-	.select-hud select option,
-	.select-hud select optgroup {
-		color: ButtonText;
-		background: Canvas;
-	}
-}
-
-
-/* Print */
-@media print {
-
-	[id^="hud-"],
-	.hud {
-		display: none !important;
 	}
 }

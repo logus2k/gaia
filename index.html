@@ -92,16 +92,18 @@
 				</div>
 
 
+				<!--
 				<div class="row">
 					<label><input id="toggle-clouds" type="checkbox" class="switch">Clouds</label>
 				</div>
+				-->
 				<div class="row">
-					<label><input id="clouds-additive" type="checkbox" class="switch" checked>Brighter Clouds</label>
+					<label><input id="toggle-clouds" type="checkbox" class="switch">Clouds</label>
 				</div>
 
 				<!-- Atmosphere glow + color swatch on the same line -->
 				<div class="row">
-					<label><input id="toggle-atmo" type="checkbox" class="switch" checked>Atmosphere</label>
+					<label><input id="toggle-atmo" type="checkbox" class="switch">Atmosphere</label>
 					<span id="atmoColorRow" class="inline-color">
 						<input id="atmoColorPick" type="color" value="#78b4ff">
 						<input id="atmoHex" type="hidden" value="#78B4FFFF">
@@ -143,8 +145,7 @@
 				</div>
 
 				<div class="row">
-					<label><input id="sel-border-toggle" type="checkbox" class="switch" checked>Selection
-						Highlight</label>
+					<label><input id="sel-border-toggle" type="checkbox" class="switch" checked>Highlight</label>
 					<span id="sel-border-color-row" class="inline-color">
 						<input id="sel-border-color" type="color" value="#ffd34a">
 						<input id="sel-border-hex" type="hidden" value="#FFD34ACC">
@@ -152,7 +153,7 @@
 				</div>
 
 				<div class="row">
-					<label><input id="sel-fill-toggle" type="checkbox" class="switch" checked>Selection Fill</label>
+					<label><input id="sel-fill-toggle" type="checkbox" class="switch" checked>Fill</label>
 					<span id="sel-fill-color-row" class="inline-color">
 						<input id="sel-fill-color" type="color" value="#00c8ff">
 						<input id="sel-fill-hex" type="hidden" value="#00C8FF40">
@@ -180,7 +181,7 @@
 				<div class="subgroup" id="stars-controls" aria-live="polite" style="margin-top: 10px;">
 					<div class="control-grid">
 						<label for="skyBright">Brightness</label>
-						<div class="readout" style="width: 140px;">
+						<div class="readout brightness">
 							<small id="sky-bright-readout">3%</small>
 						</div>
 					</div>
@@ -199,7 +200,6 @@
 				<div class="sep2"></div>
 
 				<div class="row" style="justify-content: center;">
-					<div class="label" aria-hidden="true"></div>
 					<div class="btnrow nowrap">
 						<button class="btn" id="btn-face-n" title="North Pole">North</button>
 						<button class="btn" id="btn-face-0" title="Prime Meridian (Longitude 0°)">Greenwich</button>
@@ -212,18 +212,14 @@
 
 				<div class="subgroup" style="margin-top: 10px;">
 					<div class="control-grid">
-						<label for="speed">Spin&nbsp;Speed</label>
-						<div class="readout">
-							<div style="width: 135px;">
-								<small id="speed-readout">±0.00°/s</small>
-							</div>
+						<label for="speed">Spin</label>
+						<div class="readout spin">
+							<small id="speed-readout">±0.00°/s</small>
 						</div>
 					</div>
 					<input id="speed" type="range" min="0" max="1" step="0.01" value="0.0">
-					<div class="readout">
-						<div>
-							<small id="speed-readout-km">0.000 km/s · 0 km/h</small>
-						</div>
+					<div class="readout speed">
+						<small id="speed-readout-km">0.000 km/s · 0 km/h</small>
 					</div>
 				</div>
 			</details>
