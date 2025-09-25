@@ -135,6 +135,9 @@ export class ChatVoiceAssistant {
 				if (this.activeAssistantBubble) {
 					this.activeAssistantBubble.textContent = text;
 				}
+
+				const chatWindow = document.getElementById("chat-messages");
+				if (chatWindow) chatWindow.scrollTop = chatWindow.scrollHeight;
 			},
 			done: () => {
 				this.activeAssistantBubble = null;
