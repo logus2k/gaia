@@ -206,6 +206,13 @@ export class AgentClient {
 			agent: options.agent,
 			thread_id: options.threadId || null
 		};
+		
+		// Optional memory hint for the server's Chat() path
+		if (options && typeof options.memory === "string") {
+			payload.memory = options.memory;            // e.g. "thread_window"
+		} else if (options && typeof options.memoryMode === "string") {
+			payload.memory = options.memoryMode;        // alias, if you prefer
+		}
 
 		return new Promise((resolve, reject) => {
 			this._runResolve = resolve;

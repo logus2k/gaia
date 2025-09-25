@@ -48,6 +48,8 @@ div.avatar-placeholder {
 	margin-bottom: 12px;
 	display: flex;
 	flex-direction: column;
+	user-select: text;
+	cursor: text;
 }
 
 .message.user {

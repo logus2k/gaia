@@ -33,7 +33,12 @@ export async function initLLM(
 
 	async function send(text) {
 		if (!text || !text.trim()) return;
-		return client.runText(text, { agent, threadId: state.threadId }, {
+		return client.runText(text, { 
+			agent, 
+			threadId: state.threadId,
+			memory: "thread_window"
+		}, 
+		{
 			onStarted,          // override per-send if needed
 			onText,             // streams accumulated text (SDK provides full buffer) :contentReference[oaicite:3]{index=3}
 			onDone,
