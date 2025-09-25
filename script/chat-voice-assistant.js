@@ -124,6 +124,7 @@ export class ChatVoiceAssistant {
 	}	
 
 	async _initLlm() {
+
 		const ui = {
 			started: () => {
 				this.activeAssistantBubble = (window.addMessage?.("assistant", "") ?? null);
@@ -133,19 +134,28 @@ export class ChatVoiceAssistant {
 					this.activeAssistantBubble = (window.addMessage?.("assistant", "") ?? null);
 				}
 				if (this.activeAssistantBubble) {
-					this.activeAssistantBubble.textContent = text;
-				}
+					// Parse Markdown → HTML (marked must be loaded on the page)
+					const html = window.marked?.parse ? window.marked.parse(text) : text;
 
-				const chatWindow = document.getElementById("chat-messages");
-				if (chatWindow) chatWindow.scrollTop = chatWindow.scrollHeight;
+					// (Recommended) sanitize if DOMPurify is available
+					this.activeAssistantBubble.innerHTML = window.DOMPurify
+						? window.DOMPurify.sanitize(html)
+						: html;
+
+					// (Optional) syntax highlight if highlight.js is present
+					if (window.hljs) {
+						this.activeAssistantBubble
+							.querySelectorAll("pre code")
+							.forEach((el) => window.hljs.highlightElement(el));
+					}
+
+					// Keep the newest content in view while streaming
+					const chatWindow = document.getElementById("chat-messages");
+					if (chatWindow) chatWindow.scrollTop = chatWindow.scrollHeight;
+				}
 			},
-			done: () => {
-				this.activeAssistantBubble = null;
-			},
-			error: (e) => {
-				this.activeAssistantBubble = null;
-				console.error(e);
-			}
+			done: () => { this.activeAssistantBubble = null; },
+			error: (e) => { this.activeAssistantBubble = null; console.error(e); }
 		};
 
 		const { client, send, cancel, getThreadId } = await initLLM({
