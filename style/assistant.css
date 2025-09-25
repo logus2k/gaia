@@ -388,6 +388,13 @@ span.online-status {
     margin-top: 1px;
 }
 
+div.online-control {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-right: 8px;
+}
+
 .status-dot {
     width: 11px;
     height: 11px;

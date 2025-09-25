@@ -48,17 +48,6 @@ function addMessage(type, content) {
     return messageDiv.querySelector('.message-bubble');
 }
 
-/*
-function showTypingIndicator() {
-    document.getElementById('typing-indicator').style.display = 'flex';
-    document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;
-}
-
-function hideTypingIndicator() {
-    document.getElementById('typing-indicator').style.display = 'none';
-}
-*/
-
 let isRecording = false;
 function startRecording() {
     if (!isRecording) {
@@ -75,25 +64,11 @@ function stopRecording() {
         const btn = event.target.closest('.control-btn');
         btn.classList.remove('recording');
         document.getElementById('audio-status').textContent = 'Processing voice...';
-
-        // Simulate voice processing
-        setTimeout(() => {
-            document.getElementById('audio-status').textContent = 'Ready to assist';
-            addMessage('user', '[Voice message: "What is the capital of France?"]');
-            // showTypingIndicator();
-            setTimeout(() => {
-                // hideTypingIndicator();
-                addMessage('assistant', 'The capital of France is Paris, located in the north-central part of the country along the Seine River.');
-            }, 1500);
-        }, 1000);
     }
 }
 
 function replayLastResponse() {
     document.getElementById('audio-status').textContent = 'Playing audio...';
-    setTimeout(() => {
-        document.getElementById('audio-status').textContent = 'Ready to assist';
-    }, 2000);
 }
 
 function toggleTTS() {
@@ -110,9 +85,4 @@ function toggleVoiceActivation() {
     btn.setAttribute('data-tooltip', isActive ? 'Voice activation enabled' : 'Voice activation disabled');
 }
 
-// Auto-resize textarea
-document.querySelector('.chat-input').addEventListener('input', function () {
-    this.style.height = 'auto';
-    const minHeight = 48; // Approximately 2 lines
-    this.style.height = Math.max(minHeight, Math.min(this.scrollHeight, 100)) + 'px';
-});
+addMessage("assistant", "Hello! I'm Gaia, your Earth Exploration Assistant.");
