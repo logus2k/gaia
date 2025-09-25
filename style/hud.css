@@ -314,8 +314,8 @@
 }
 
 .hud :is(button, input, select, textarea):focus-visible {
-    outline: 0.5px solid #333333;
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: none;
 }
 
 /* Groups (collapsible sections) */

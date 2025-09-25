@@ -93,31 +93,33 @@ div.avatar-placeholder {
 }
 
 .input-row {
-	display: flex;
-	gap: 8px;
-	align-items: flex-end;
+    display: flex;
+    gap: 4px;
+    align-items: flex-end;
 }
 
 .chat-input {
-	flex: 1;
-	background: rgba(0, 0, 0, 0.3);
-	border: 1px solid rgba(255, 255, 255, 0.2);
-	border-radius: 8px;
-	padding: 8px 12px;
-	color: #fff;
-	font-size: 13px;
-	min-height: 48px;
-	max-height: 100px;
-	resize: vertical;
-	font-family: inherit;
+    flex: 1;
+    background: transparent;
+    padding: 8px 12px;
+    color: #fff;
+    font-size: 13px;
+    min-height: 48px;
+    max-height: 100px;
+    resize: vertical;
+    font-family: inherit;
+	border: none;
 }
 
 .chat-input:focus {
-    border-color: #006600;
-    box-shadow: 0 0 0.5px rgba(51, 255, 51, 0.25);
+    border: none;
+    box-shadow: none;
 }
 
-.chat-input::placeholder { color: rgba(255, 255, 255, 0.4); }
+.chat-input::placeholder { 
+	color: #666666;
+	font-size: 12px;
+}
 
 /* Control buttons (send / mic, etc.) */
 .control-btn {
@@ -358,17 +360,25 @@ div.avatar-placeholder {
 	background: rgba(0, 0, 0, 0.2);
 }
 
+span.online-status {
+    font-size: 10px;
+    color: #33FF33;
+    opacity: 0.8;
+    padding-bottom: 1.5px;
+    letter-spacing: 1px;
+}
+
 .status-dot {
-	width: 12px;
-	height: 12px;
-	border-radius: 50%;
-	background: #ff4444;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: #ff4444;
 }
 
 .status-dot.connected {
-	margin-left: 5px;
-	background: #33FF33;
-	box-shadow: 0 0 4px rgba(51, 255, 51, 0.6);
+    margin-left: 3px;
+    background: #33FF33;
+    box-shadow: 0 0 4px rgba(51, 255, 51, 0.6);
 }
 
 .status-dot.connecting {
