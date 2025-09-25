@@ -34,7 +34,8 @@ function addMessage(type, content) {
     const timeString = now.toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
-        hour12: true
+        second: "2-digit",
+        hour12: false
     });
 
     messageDiv.innerHTML = `

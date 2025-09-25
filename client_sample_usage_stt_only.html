@@ -164,6 +164,31 @@
 					onError: (e) => { log("[run error]", e); btnCancelRun.disabled = true; }
 				});
 
+
+				// Avoid duplicate handlers in case "Connect Agent" is clicked multiple times
+				if (client.socket?.off) client.socket.off("UserTranscript");
+
+				client.socket.on("UserTranscript", (p = {}) => {
+					const {
+						text = "",
+						final = false,
+						uttId = null,
+						threadId = null,
+						clientId = null,
+						duration = null,
+						ts = null
+					} = p;
+
+					if (!text) return;
+
+					// Nice compact log line
+					const tag = final ? "final" : "interim";
+					const id = uttId ? ` #${String(uttId).slice(0,8)}` : "";
+					const dur = typeof duration === "number" ? ` (${duration.toFixed(1)}s)` : "";
+					log(`[stt→client] ${tag}${id}${dur}: ${text}`);
+				});				
+
+
 				log("[agent] connected");
 			} catch (e) {
 				agentStateEl.textContent = "error";
