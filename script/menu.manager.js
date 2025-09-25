@@ -201,27 +201,30 @@ export class MenuManager {
         this.#applyControlStyles(mv);
     }
 
-    #applyControlStyles(moveable) {
+    #applyControlStyles(mv) {
+        // grab only THIS instance's controls
+        const box = document.querySelectorAll('.moveable-control-box');
+        const controlBox = box[box.length - 1]; // the box just updated by mv.updateRect()
 
-        const controls = Array.from(document.querySelectorAll(".moveable-control"));
-        const width = moveable.getRect().width;
-        const height = moveable.getRect().height;
+        if (!controlBox) return;
 
-        controls.forEach((control, index) => {
+        const controls = controlBox.querySelectorAll('.moveable-control');
+        const { width, height } = mv.getRect();
 
-            control.classList.add("custom-control");
+        controls.forEach(control => {
+            control.classList.add('custom-control');
 
-            if (control.classList.contains("moveable-n") || control.classList.contains("moveable-s")) {
+            if (control.classList.contains('moveable-n') || control.classList.contains('moveable-s')) {
                 control.style.width = `${width}px`;
                 control.style.marginLeft = `-${width / 2}px`;
             }
-            
-            if (control.classList.contains("moveable-w") || control.classList.contains("moveable-e")) {
+            if (control.classList.contains('moveable-w') || control.classList.contains('moveable-e')) {
                 control.style.height = `${height}px`;
                 control.style.marginTop = `-${height / 2}px`;
             }
         });
-    }    
+    }
+    
 
     #applyInitialVisibility() {
         Object.entries(this.cfg.initialVisibility).forEach(([id, vis]) => {
