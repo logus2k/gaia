@@ -21,19 +21,7 @@
     box-sizing: border-box !important;
     background: transparent !important;
     z-index: 10 !important;
-    transition: all 0.2s ease;
 }
-
-.moveable-line {
-    width: 20px !important;
-    height: 20px !important;
-}
-
-.moveable-line.moveable-n,
-.moveable-line.moveable-s { height: 20px; }
-.moveable-line.moveable-e,
-.moveable-line.moveable-w { width: 20px; }
-
 
 /* Core HUD */
 .hud {

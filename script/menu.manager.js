@@ -178,7 +178,9 @@ export class MenuManager {
             pos.x = x; pos.y = y;
             e.target.style.transform = `translate(${x}px, ${y}px)`;
         })
-        .on('dragEnd', () => { allowDrag = false; })
+        .on('dragEnd', () => { 
+            allowDrag = false; 
+        })
         .on('resizeStart', e => {
             // seed resizable’s internal drag with the *current* translate
             e.setOrigin(['%', '%']);
@@ -192,7 +194,10 @@ export class MenuManager {
             target.style.height = `${height}px`;
             target.style.transform = `translate(${bx}px, ${by}px)`;
 
-            pos.x = bx; pos.y = by;      // keep state in sync
+            pos.x = bx; pos.y = by;
+        })
+        .on('resizeEnd', e => {
+            this.#applyControlStyles(mv);
         });
 
         this.moveables.set(panel, mv);
@@ -202,9 +207,9 @@ export class MenuManager {
     }
 
     #applyControlStyles(mv) {
-        // grab only THIS instance's controls
+
         const box = document.querySelectorAll('.moveable-control-box');
-        const controlBox = box[box.length - 1]; // the box just updated by mv.updateRect()
+        const controlBox = box[box.length - 1];
 
         if (!controlBox) return;
 
