@@ -108,7 +108,6 @@
 }
 
 
-/* Slightly tighter controls inside Settings so nothing overflows */
 .hud.settings .control-grid {
     grid-template-columns: 1fr minmax(175px, 1.2fr);
     margin: 10px 0px 5px 5px;
@@ -129,18 +128,6 @@
     background-color: var(--sel-bg-hover);
 }
 
-/* minor trim to keep 4 buttons on one line */
-
-.hud.mv-active {
-	transition: none !important;
-	/* if you have hover transforms, neutralize them while active */
-}
-
-
-
-
-
-/* Callout */
 .hud.callout {
 	position: absolute;
 	display: none;
@@ -190,33 +177,23 @@
 	box-shadow: 0 4px 10px rgba(0, 0, 0, .35);
 }
 
-/* Title + dragging feedback */
+
 .hud h1 {
     font-size: 14px;
     margin: 0px 8px 0px 8px;
     font-weight: 700;
     letter-spacing: 0.2px;
     color: var(--hud-warm);
-    /* text-shadow: 0 1px 0 rgba(0, 0, 0, .45); */
-    /* line-height: 1.2; */
-    /* height: 24px; */
     margin: 0px 0px 0px 0px;
     padding: 5px 30px 5px 5px;
 }
 
-/* Ensure all HUD panels have consistent base behavior */
 .hud {
-    /* Prevent text selection during drag */
     user-select: none;
     -webkit-user-select: none;
-    
-    /* Ensure panels stay within viewport */
-    max-width: calc(100vw - 40px);
-    max-height: calc(100vh - 40px);
 	resize: none;
 }
 
-/* Make only the h1 draggable (visual hint) */
 .hud h1 {
     cursor: move;
 }
@@ -250,37 +227,7 @@
 	opacity: .98;
 }
 
-
-
-/* Motion/accessibility + fallbacks */
-@media (prefers-reduced-motion:reduce) {
-	[id^="hud-"] {
-		transition: opacity .2s linear, visibility .2s linear, background .2s linear;
-		transform: none;
-	}
-
-	[id^="hud-"].visible {
-		transform: none;
-	}
-}
-
-@supports not ((backdrop-filter:blur(2px))) {
-	.hud {
-		background: rgba(8, 10, 20, .88);
-	}
-}
-
-@media (prefers-contrast:more) {
-	.hud {
-		border-color: rgba(255, 255, 255, .35);
-	}
-
-	[id^="hud-"].visible:hover {
-		color: #ffd073;
-	}
-}
-
-/* About links */
+/* About */
 #hud-about {
 	--link-idle: rgba(51, 255, 51, .75);
 	--link: #33FF33;

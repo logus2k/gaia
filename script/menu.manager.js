@@ -29,6 +29,7 @@ export class MenuManager {
         this.panels = {};
         this.moveables = new Map();
         this.topZ = 10;
+        this.positions = new WeakMap();
 
         this.tx = 0;
         this.ty = 0;
@@ -108,7 +109,11 @@ export class MenuManager {
                 const close = document.createElement('button');
                 close.className = 'pm-close';
                 close.textContent = '×';
-                close.addEventListener('click', (e) => { e.stopPropagation(); this.#setPanelDisplay(id, false); this.#syncMenuBtn(id, false); });
+                close.addEventListener('click', (e) => { 
+                    e.stopPropagation(); 
+                    this.#setPanelDisplay(id, false); 
+                    this.#syncMenuBtn(id, false);
+                });
                 el.appendChild(close);
             }
 
@@ -119,9 +124,6 @@ export class MenuManager {
             });
         });
     }
-
-
-
 
     #makeDraggable(panel, id) {
 
@@ -157,49 +159,41 @@ export class MenuManager {
 
         let allowDrag = false;
 
+        const pos = this.positions.get(panel) || { x: 0, y: 0 };
+        this.positions.set(panel, pos);
+
         mv.on('dragStart', e => {
-                const t = e.inputEvent && e.inputEvent.target;
-                allowDrag = !!(headerEl && t && (t === headerEl || headerEl.contains(t)));
-                if (!allowDrag) {
-                    e.stop && e.stop();
-                    return;
-                }
-                e.inputEvent.stopPropagation();
-            })
-            .on('drag', ({ target, transform }) => {
-                if (!allowDrag) return;
-                target.style.transform = transform;
-            })
-            .on('dragEnd', () => {
-                allowDrag = false;
-            })
-            .on('render', () => {
-                this.#applyControlStyles(mv);
-            })
-            .on('resizeStart', e => {
-                if (isResizable) {
-                    // make Moveable compute translations relative to the current transform
-                    e.setOrigin(['%', '%']);            // don’t shift around the origin unexpectedly
-                    if (e.dragStart) e.dragStart.set([this.tx, this.ty]);
-                }
-            })
-            .on('resize', e => {
-                if (isResizable) {
-                    const { target, width, height, drag } = e;
-                    const [bx, by] = drag.beforeTranslate; // THIS is the key part
+            const t = e.inputEvent && e.inputEvent.target;
+            allowDrag = !!(headerEl && t && (t === headerEl || headerEl.contains(t)));
+            if (!allowDrag) { e.stop && e.stop(); return; }
 
-                    // apply size
-                    target.style.width = `${width}px`;
-                    target.style.height = `${height}px`;
+            // seed draggable with the current translate so there's no initial jump
+            if (e.set) e.set([pos.x, pos.y]);
 
-                    // apply translation so the grabbed handle tracks the cursor
-                    target.style.transform = `translate(${bx}px, ${by}px)`;
+            e.inputEvent.stopPropagation();
+        })
+        .on('drag', e => {
+            if (!allowDrag) return;
+            const [x, y] = e.beforeTranslate;
+            pos.x = x; pos.y = y;
+            e.target.style.transform = `translate(${x}px, ${y}px)`;
+        })
+        .on('dragEnd', () => { allowDrag = false; })
+        .on('resizeStart', e => {
+            // seed resizable’s internal drag with the *current* translate
+            e.setOrigin(['%', '%']);
+            if (e.dragStart) e.dragStart.set([pos.x, pos.y]);
+        })
+        .on('resize', e => {
+            const { target, width, height, drag } = e;
+            const [bx, by] = drag.beforeTranslate;
 
-                    // keep local state in sync (optional but recommended)
-                    [this.tx, this.ty] = [bx, by];
-                }
-            }
-        );
+            target.style.width = `${width}px`;
+            target.style.height = `${height}px`;
+            target.style.transform = `translate(${bx}px, ${by}px)`;
+
+            pos.x = bx; pos.y = by;      // keep state in sync
+        });
 
         this.moveables.set(panel, mv);
 
@@ -240,12 +234,37 @@ export class MenuManager {
     #setPanelDisplay(id, show) {
         const p = this.panels[id];
         if (!p) return;
+        
+        // Get the current Moveable instance for this panel
+        const existingMoveable = this.moveables.get(p);
+
         if (show) {
+            // --- Logic for SHOWING the Panel ---
             p.classList.add('visible');
             this.topZ += 1;
             p.style.zIndex = String(this.topZ);
+
+            // 1. If the panel is being shown, ensure Moveable is active.
+            //    Since your #makeDraggable handles creation/recreation, call it here.
+            if (!existingMoveable) {
+                // If it doesn't exist, create it (this is the key change for visibility)
+                this.#makeDraggable(p, id); 
+            } else {
+                // If it already exists (e.g., if you only deactivated it previously, 
+                // though you are using a destroy/recreate pattern) you'd call an activate method.
+                // For your current pattern, it's safer to ensure it's created via the call above.
+                existingMoveable.updateRect(); // Ensures controls are correctly positioned
+            }
+            
         } else {
+            // --- Logic for HIDING the Panel ---
             p.classList.remove('visible');
+
+            // 2. If the panel is being hidden, DESTROY the Moveable instance.
+            if (existingMoveable) {
+                existingMoveable.destroy();
+                this.moveables.delete(p);
+            }
         }
     }
 
