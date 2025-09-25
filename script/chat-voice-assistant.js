@@ -11,11 +11,13 @@ export class ChatVoiceAssistant {
 			llmUrl: "http://localhost:7701",
 			agent: "succint",
 			sttUrl: "http://localhost:2700",
+			ttsUrl: "http://localhost:7700",
 			// UI selectors
 			inputSel: "#chat-input",
 			sendBtnSel: "#send-button",
 			cancelBtnSel: "#cancelBtn",
 			micBtnSel: "#mic-toggle-btn",
+			ttsBtnSel: "#tts-toggle-btn",
 			recorderWorkletUrl: "./script/recorder.worklet.js",
 			// callbacks (optional)
 			onTranscript: null,	// (text, isFinal) => {}
@@ -48,6 +50,12 @@ export class ChatVoiceAssistant {
 		this.isRecording = false;
 		this.packetsProcessed = 0;
 
+		// TTS
+		this.ttsSocket = null;
+		this.ttsEnabled = false;
+		this.ttsPlayCtx = null;
+		this.ttsPlayQueue = Promise.resolve();		
+
 		this._cssInjected = false;
 	}
 
@@ -63,6 +71,11 @@ export class ChatVoiceAssistant {
 
 		this._wireTranscriptHandlers();
 
+		window.addEventListener("beforeunload", () => {
+			try { this.ttsSocket?.disconnect(); } catch {}
+			this._closeTtsAudioContext();
+		});		
+
 		this._exposeGlobals(); // keep backward compatibility with inline onclicks
 	}
 
@@ -71,6 +84,7 @@ export class ChatVoiceAssistant {
 		this.sendBtn = document.querySelector(this.opts.sendBtnSel);
 		this.cancelBtn = document.querySelector(this.opts.cancelBtnSel);
 		this.micBtn = document.querySelector(this.opts.micBtnSel);
+		this.ttsBtn = document.querySelector(this.opts.ttsBtnSel);
 	}
 
 	_bindUi() {
@@ -92,6 +106,9 @@ export class ChatVoiceAssistant {
 		if (this.micBtn) {
 			this.micBtn.addEventListener("click", () => this.toggleRecording());
 		}
+		if (this.ttsBtn) {
+			this.ttsBtn.addEventListener("click", () => this.toggleTTS());
+		}		
 	}
 
 	_wireTranscriptHandlers() {
@@ -128,6 +145,10 @@ export class ChatVoiceAssistant {
 		const ui = {
 			started: () => {
 				this.activeAssistantBubble = (window.addMessage?.("assistant", "") ?? null);
+				if (this.opts.ttsHalfDuplex && this.isRecording) {
+					// pause mic while TTS will play
+					this.stopRecording().catch(()=>{});
+				}
 			},
 			stream: (text) => {
 				if (!this.activeAssistantBubble) {
@@ -380,7 +401,151 @@ export class ChatVoiceAssistant {
         } finally {
             this._toggling = false;
         }
+
+		console.log("[IDs]", { clientId: window.__clientId, threadId: this.getThreadId?.() });		
     }
+
+	/** ---------- TTS: public toggle ---------- **/
+	async toggleTTS() {
+		if (this.ttsEnabled) {
+			await this._disableTTS();
+		} else {
+			await this._enableTTS();
+		}
+
+		console.log("[IDs]", { clientId: window.__clientId, threadId: this.getThreadId?.() });		
+	}
+
+	async _enableTTS() {
+		if (this.ttsEnabled) return;
+		const clientId = window.__clientId || (window.__clientId = (crypto.randomUUID?.() || Math.random().toString(36).slice(2)));
+
+		// 1) Tell agent_server to stream assistant text to TTS for this client
+		try {
+			await this.client.ttsSubscribe({ clientId });	// voice/speed can be added later
+		} catch (e) {
+			console.error("[TTS] subscribe via agent_server failed:", e);
+			// carry on; we still connect the audio sink and can retry later
+		}
+
+		// 2) Connect this browser to the TTS server as the audio sink
+		await this._ensureTtsSocket(clientId);
+
+		this.ttsEnabled = true;
+		this._updateTtsButton(true);
+		console.log("[TTS] enabled");
+	}
+
+	async _disableTTS() {
+		if (!this.ttsEnabled) return;
+
+		// Best-effort: tell agent_server to stop streaming to TTS
+		try {
+			const clientId = window.__clientId;
+			if (clientId) await this.client.ttsUnsubscribe({ clientId });
+		} catch (e) {
+			console.warn("[TTS] ttsUnsubscribe:", e?.message || e);
+		}
+
+		// Disconnect audio sink and close playback context
+		try { this.ttsSocket?.disconnect(); } catch {}
+		this.ttsSocket = null;
+		await this._closeTtsAudioContext();
+
+		this.ttsEnabled = false;
+		this._updateTtsButton(false);
+		console.log("[TTS] disabled");
+	}
+
+	_updateTtsButton(on) {
+		const btn = this.ttsBtn;
+		if (!btn) return;
+		const icon = btn.querySelector(".material-symbols-outlined");
+		if (on) {
+			btn.classList.add("recording");				// reuse style glow if you like
+			btn.setAttribute("data-tooltip", "TTS: ON (click to turn OFF)");
+			if (icon) icon.textContent = "volume_up";
+		} else {
+			btn.classList.remove("recording");
+			btn.setAttribute("data-tooltip", "TTS: OFF (click to turn ON)");
+			if (icon) icon.textContent = "volume_off";
+		}
+	}
+
+	/** ---------- TTS: Socket.IO sink + playback ---------- **/
+	async _ensureTtsSocket(clientId) {
+		if (this.ttsSocket?.connected) return;
+
+		if (!window.io) throw new Error("socket.io client not available (window.io)");
+		const socket = window.io(this.opts.ttsUrl, {
+			path: "/socket.io",
+			transports: ["websocket"],
+			forceNew: true,
+			query: { type: "browser", format: "binary", main_client_id: clientId }
+		});
+
+		await new Promise((resolve, reject) => {
+			socket.once("connect", resolve);
+			socket.once("connect_error", reject);
+			socket.once("error", reject);
+		});
+
+		// Register this socket as the audio sink for clientId
+		await new Promise((resolve, reject) => {
+			socket.emit("register_audio_client",
+				{ main_client_id: clientId, connection_type: "browser", mode: "tts" },
+				() => resolve()
+			);
+		});
+
+		// Binary audio chunks -> queued playback
+		socket.on("tts_audio_chunk", async (evt) => {
+			const buf = evt?.audio_buffer;
+			if (!buf) return;
+			const actx = this._ensureTtsAudioContext();
+			let audioBuf;
+			try {
+				// decodeAudioData consumes the buffer; pass a copy
+				audioBuf = await actx.decodeAudioData(buf.slice(0));
+			} catch (e) {
+				console.warn("[TTS] decodeAudioData failed:", e);
+				return;
+			}
+			this.ttsPlayQueue = this.ttsPlayQueue.then(() => {
+				const src = actx.createBufferSource();
+				src.buffer = audioBuf;
+				src.connect(actx.destination);
+				src.start();
+				return new Promise(res => { src.onended = res; });
+			});
+		});
+
+		socket.on("tts_stop_immediate", () => {
+			this._closeTtsAudioContext();
+		});
+
+		socket.on("disconnect", (reason) => {
+			console.log("[TTS] disconnect:", reason);
+		});
+
+		this.ttsSocket = socket;
+	}
+
+	_ensureTtsAudioContext() {
+		if (!this.ttsPlayCtx) {
+			this.ttsPlayCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+		}
+		return this.ttsPlayCtx;
+	}
+
+	async _closeTtsAudioContext() {
+		if (this.ttsPlayCtx) {
+			try { await this.ttsPlayCtx.close(); } catch {}
+			this.ttsPlayCtx = null;
+		}
+		this.ttsPlayQueue = Promise.resolve();
+	}
+
 
 	_updateMicButton(recording) {
 		const micBtn = this.micBtn;
