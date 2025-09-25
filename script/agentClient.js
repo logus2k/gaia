@@ -10,6 +10,8 @@ export class AgentClient {
 		this.path = opts.path ?? "/socket.io";
 		this.socket = null;
 
+		this._transcripts = { onInterim: null, onFinal: null };		
+
 		this._buffer = "";
 		this._activeRunId = null;
 		this._runResolve = null;
@@ -71,6 +73,17 @@ export class AgentClient {
 		this.socket.on("reconnect_attempt", (attempt) => { this._lastReconnectAttempt = attempt; });
 		this.socket.on("reconnect_error", (err) => { console.debug("[AgentClient] reconnect_error:", err?.message || err); });
 		this.socket.on("reconnect_failed", () => { console.warn("[AgentClient] reconnect_failed"); });
+
+		this.socket.on("UserTranscript", (payload) => {
+			// normalize + route
+			const text = typeof payload?.text === "string" ? payload.text : "";
+			if (!text) return;
+			const final = !!payload?.final;
+			const cb = final ? this._transcripts.onFinal : this._transcripts.onInterim;
+			if (typeof cb === "function") {
+				try { cb({ ...payload, text, final }); } catch { }
+			}
+		});		
 
 		// --- streaming
 		this.socket.on("RunStarted", (payload) => {
@@ -148,6 +161,17 @@ export class AgentClient {
 		this._global.onDone    = typeof cbs.onDone    === "function" ? cbs.onDone    : null;
 		this._global.onError   = typeof cbs.onError   === "function" ? cbs.onError   : null;
 	}
+
+	/**
+	 * Register transcript handlers.
+	 * Server emits: { text, final, uttId?, threadId?, clientId?, ts?, lang?, duration? }
+	 * - onInterim: called when final === false (if your server emits interims)
+	 * - onFinal:   called once per utterance when final === true
+	 */
+	onTranscripts(cbs = {}) {
+		this._transcripts.onInterim = typeof cbs.onInterim === "function" ? cbs.onInterim : null;
+		this._transcripts.onFinal = typeof cbs.onFinal === "function" ? cbs.onFinal : null;
+	}	
 
 	/**
 	 * Start a chat run.

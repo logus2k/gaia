@@ -60,6 +60,9 @@ export class ChatVoiceAssistant {
 		this._injectRecordingCssOnce();
 
 		await this._initLlm();
+
+		this._wireTranscriptHandlers();
+
 		this._exposeGlobals(); // keep backward compatibility with inline onclicks
 	}
 
@@ -90,6 +93,35 @@ export class ChatVoiceAssistant {
 			this.micBtn.addEventListener("click", () => this.toggleRecording());
 		}
 	}
+
+	_wireTranscriptHandlers() {
+		if (!this.client?.onTranscripts) {
+			console.warn("[ChatVoiceAssistant] agent client missing onTranscripts()");
+			return;
+		}
+
+		this.client.onTranscripts({
+			onInterim: ({ text }) => {
+				// show interim somewhere lightweight (optional)
+				this._updateLiveCaption(text);
+				// still give external listeners a chance
+				this.opts.onTranscript?.(text, false);
+			},
+			onFinal: ({ text }) => {
+				const t = (text || "").trim();
+				if (!t) return;
+
+				// commit exactly one user bubble per utterance
+				window.addMessage?.("user", t);
+
+				// clear interim caption
+				this._updateLiveCaption("");
+
+				// external hook
+				this.opts.onTranscript?.(t, true);
+			}
+		});
+	}	
 
 	async _initLlm() {
 		const ui = {
@@ -127,24 +159,6 @@ export class ChatVoiceAssistant {
 		this.send = send;
 		this.cancel = cancel;
 		this.getThreadId = getThreadId;
-
-		// Listen for server-side user transcripts and render exactly once per utterance
-		const sock = this.client?.socket;
-		if (sock?.off) sock.off("UserTranscript"); // avoid duplicate handlers on reconnects
-		sock?.on("UserTranscript", (p = {}) => {
-			const text = typeof p.text === "string" ? p.text.trim() : "";
-			const isFinal = !!p.final; // your server currently only emits finals; ready for interims
-			if (!text) return;
-
-			if (isFinal) {
-				// one user bubble per utterance (server is the single source of truth)
-				window.addMessage?.("user", text);
-			}
-			// Also forward to optional callback used by your UI, if any
-			this.opts.onTranscript?.(text, isFinal);
-		});
-
-
 	}
 
 	/**
