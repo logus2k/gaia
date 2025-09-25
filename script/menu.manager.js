@@ -198,6 +198,7 @@ export class MenuManager {
         })
         .on('resizeEnd', e => {
             this.#applyControlStyles(mv);
+            mv.updateRect();
         });
 
         this.moveables.set(panel, mv);

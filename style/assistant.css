@@ -106,8 +106,7 @@ div.avatar-placeholder {
     padding: 8px 0px 8px 8px;
     color: #fff;
     font-size: 13px;
-    min-height: 48px;
-    max-height: 100px;
+    min-height: 28px;
     resize: vertical;
     font-family: inherit;
     border: none;
