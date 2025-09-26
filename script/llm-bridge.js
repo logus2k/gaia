@@ -7,7 +7,7 @@ import { AgentClient } from "./agentClient.js";
 export async function initLLM(
 	{
 		url = location.origin,
-		agent = "succint",
+		agent = "topic",
 		onStarted,
 		onText,
 		onDone,

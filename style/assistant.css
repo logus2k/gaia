@@ -22,6 +22,7 @@ div.avatar-placeholder {
 	border-radius: 8px;
 	border: 1px solid rgba(255, 255, 255, 0.08);
 	min-height: 0;
+	text-decoration: none;
 }
 
 /* Scrollbar (messages) */
@@ -45,7 +46,6 @@ div.avatar-placeholder {
 
 /* Message bubbles */
 .message {
-	margin-bottom: 12px;
 	display: flex;
 	flex-direction: column;
 	user-select: text;
@@ -69,6 +69,11 @@ div.avatar-placeholder {
 	font-size: 13px;
 	line-height: 1.4;
 	word-wrap: break-word;
+}
+
+.message-bubble p {
+    margin: 5px;
+    padding: 5px 0px;
 }
 
 .message.user .message-bubble {
@@ -581,10 +586,10 @@ div.online-control {
 }
 
 .menu-bar {
-	display: flex;
-	justify-content: flex-end;
-	margin: 8px 5px 0px 5px;
-	flex-shrink: 0;
+    display: flex;
+    justify-content: flex-end;
+    margin: 8px 5px 2px 5px;
+    flex-shrink: 0;
 }
 
 .demo-header h1 {

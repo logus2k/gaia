@@ -50,10 +50,10 @@
 	<!-- Site logo -->
 	<div class="logo logo-terminal">
 		<div class="logo-head">
-			<a class="logo-link" href="https://www.logus2k.com" aria-label="Go to Logus2k homepage">
-				<div class="logo-icon">L</div>
+			<a class="logo-link" href="https://www.logus2k.com" title="Home">
+				<div class="msi material-symbols-outlined logo-menu">menu</div>
 			</a>
-			<div class="logo-badge"><img src="./image/gaia_logo.png" alt=""></div>
+			<div class="logo-badge"><img src="./image/gaia_leaf.png" alt=""></div>
 		</div>
 	</div>
 
@@ -257,22 +257,20 @@
 		</div>
 
 
-		<!-- SEARCH HUD: Data Explorer -->
+		<!-- SEARCH HUD -->
 		<div class="hud search" id="hud-search">
 			<h1>Search</h1>
 			<div class="sep"></div>
-			<div class="mini">Click the globe to inspect a location</div>
+			<div class="mini">Search for a location</div>
 
 			<div class="row" style="align-items:flex-start;">
 				<div style="flex:1;">
-					<input id="searchBox" type="search" placeholder="[latitude, longitude] or [location name]" />
+					<input id="searchBox" type="search" placeholder="Location to be found" />
 				</div>
 				<button class="btn" id="btn-search">Go</button>
 			</div>
 
-			<div id="searchStatus" class="mini" style="margin-top:4px; opacity:.8;">Examples:
-				<code>38.7223, -9.1393</code> | <code>Lisbon</code> | <code>Portugal</code>
-			</div>
+			<div id="searchStatus" class="mini" style="margin-top:4px; opacity:.8;">Example: <code>Lisbon</code></div>
 			<div class="results" id="searchResults"></div>
 
 		</div>
@@ -282,7 +280,7 @@
 		<div class="hud data" id="hud-data">
 			<h1>Data Explorer</h1>
 			<div class="sep"></div>
-			<div id="pickedInfo" class="mini">No location picked yet</div>
+			<div id="pickedInfo" class="mini">Coming soon!</div>
 			<div class="props hidden" id="propsBox">
 				<dl id="propsList"></dl>
 			</div>
@@ -298,6 +296,7 @@
 
 				<div class="menu-options" style="margin-right: auto; display: flex; gap: 6px;">
 
+					<!--
 					<button class="menu-btn" title="STT" id="mic-toggle-btn">
 						<span class="material-symbols-outlined assistant-menu-button">mic</span>
 					</button>
@@ -305,6 +304,13 @@
 					<button class="menu-btn" title="TTS" id="tts-toggle-btn">
 						<span class="material-symbols-outlined assistant-menu-button">volume_up</span>
 					</button>
+					-->
+
+
+					<button class="menu-btn" title="Voice Mode" id="voice-toggle-btn">
+						<span class="material-symbols-outlined assistant-menu-button">mic_off</span>
+					</button>
+
 
 					<!--
 					<button class="menu-btn help-tooltip active" data-tooltip="Text-to-Speech enabled" onclick="toggleTTS()">
@@ -318,9 +324,11 @@
 					<div style="width: 1px; height: 20px; background: rgba(255,255,255,0.2); margin: 0 4px;"></div>
 					-->
 
+					<!--
 					<button class="menu-btn" onclick="openAudioSettings()" title="Settings">
 						<span class="material-symbols-outlined assistant-menu-button">tune</span>
 					</button>
+					-->
 					
 					<!--
 					<button class="menu-btn" onclick="openHelp()" title="Help & Controls">
@@ -542,7 +550,7 @@
 		document.addEventListener("DOMContentLoaded", async () => {
 			const assistant = new ChatVoiceAssistant({
 				llmUrl: "http://localhost:7701",
-				agent: "succint",
+				agent: "topic",
 				sttUrl: "http://localhost:2700",
 				inputSel: "#chat-input",
 				sendBtnSel: "#send-button",

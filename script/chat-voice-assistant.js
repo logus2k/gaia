@@ -9,7 +9,7 @@ export class ChatVoiceAssistant {
 	constructor(opts = {}) {
 		this.opts = {
 			llmUrl: "http://localhost:7701",
-			agent: "succint",
+			agent: "topic",
 			sttUrl: "http://localhost:2700",
 			ttsUrl: "http://localhost:7700",
 			// UI selectors
@@ -18,6 +18,7 @@ export class ChatVoiceAssistant {
 			cancelBtnSel: "#cancelBtn",
 			micBtnSel: "#mic-toggle-btn",
 			ttsBtnSel: "#tts-toggle-btn",
+			voiceBtnSel: "#voice-toggle-btn",
 			recorderWorkletUrl: "./script/recorder.worklet.js",
 			// callbacks (optional)
 			onTranscript: null,	// (text, isFinal) => {}
@@ -85,6 +86,7 @@ export class ChatVoiceAssistant {
 		this.cancelBtn = document.querySelector(this.opts.cancelBtnSel);
 		this.micBtn = document.querySelector(this.opts.micBtnSel);
 		this.ttsBtn = document.querySelector(this.opts.ttsBtnSel);
+		this.voiceBtn = document.querySelector(this.opts.voiceBtnSel);
 	}
 
 	_bindUi() {
@@ -108,6 +110,9 @@ export class ChatVoiceAssistant {
 		}
 		if (this.ttsBtn) {
 			this.ttsBtn.addEventListener("click", () => this.toggleTTS());
+		}
+		if (this.voiceBtn) {
+			this.voiceBtn.addEventListener("click", () => this.toggleVoice());
 		}		
 	}
 
@@ -342,11 +347,18 @@ export class ChatVoiceAssistant {
 
 			this.workletNode.port.start();
 			this._updateMicButton(true);
+			this._updateVoiceButton();
+
 			console.log("[STT] Recording started successfully");
+
 		} catch (err) {
+
 			console.error("[STT] Failed to start recording:", err);
+
 			this.isRecording = false;
 			this._updateMicButton(false);
+			this._updateVoiceButton();
+
 			await this.stopRecording();
 		}
 	}
@@ -379,7 +391,10 @@ export class ChatVoiceAssistant {
 			}
 
 			this._updateMicButton(false);
+			this._updateVoiceButton();
+
 			console.log("[STT] Recording stopped");
+
 		} finally {
 			this.audioCtx = null;
 			this.sourceNode = null;
@@ -432,7 +447,10 @@ export class ChatVoiceAssistant {
 		await this._ensureTtsSocket(clientId);
 
 		this.ttsEnabled = true;
+		
 		this._updateTtsButton(true);
+		this._updateVoiceButton();
+
 		console.log("[TTS] enabled");
 	}
 
@@ -453,7 +471,10 @@ export class ChatVoiceAssistant {
 		await this._closeTtsAudioContext();
 
 		this.ttsEnabled = false;
+
 		this._updateTtsButton(false);
+		this._updateVoiceButton();
+
 		console.log("[TTS] disabled");
 	}
 
@@ -584,6 +605,51 @@ export class ChatVoiceAssistant {
 			}
 		`;
 		document.head.appendChild(style);
+	}
+
+	async toggleVoice() {
+		const bothOn = this.isRecording && this.ttsEnabled;
+
+		if (bothOn) {
+			// turn both OFF (best-effort, independent)
+			await Promise.allSettled([this.stopRecording(), this._disableTTS()]);
+		} else {
+			// turn both ON (best-effort, independent)
+			// STT path already ensures server subscription in startRecording()
+			const ops = [];
+			if (!this.isRecording) ops.push(this.startRecording());
+			if (!this.ttsEnabled) ops.push(this._enableTTS());
+			await Promise.allSettled(ops);
+		}
+
+		this._updateVoiceButton(); // keep the combined button state fresh
+	}
+
+	_updateVoiceButton() {
+		const btn = this.voiceBtn;
+		if (!btn) return;
+
+		const icon = btn.querySelector(".material-symbols-outlined");
+		const stt = !!this.isRecording;
+		const tts = !!this.ttsEnabled;
+
+		if (stt && tts) {
+			btn.classList.add("recording");
+			btn.setAttribute("data-tooltip", "Voice I/O: ON (click to turn OFF)");
+			if (icon) icon.textContent = "mic";
+		} else if (stt && !tts) {
+			btn.classList.add("recording");
+			btn.setAttribute("data-tooltip", "STT only (click to turn ON TTS too)");
+			if (icon) icon.textContent = "mic";
+		} else if (!stt && tts) {
+			btn.classList.add("recording");
+			btn.setAttribute("data-tooltip", "TTS only (click to turn ON STT too)");
+			if (icon) icon.textContent = "volume_up";
+		} else {
+			btn.classList.remove("recording");
+			btn.setAttribute("data-tooltip", "Voice I/O: OFF (click to turn ON)");
+			if (icon) icon.textContent = "mic_off";
+		}
 	}
 
 	_exposeGlobals() {
