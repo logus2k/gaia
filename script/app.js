@@ -1304,9 +1304,12 @@ const Callout = (() => {
 		}
 		calloutEl.style.display = 'block';
 		ensureLine();
-		window.dispatchEvent(new Event('resize'));
 
-		
+
+		requestAnimationFrame(() => {
+			window.dispatchEvent(new Event('resize'));
+		});
+
 		// --- Compute globe center and screen-space radius along the anchor direction ---
 		earth.getWorldPosition(globeCenterW);
 		const centerPx = worldToScreen(globeCenterW);
@@ -2728,6 +2731,15 @@ async function handleLocationSelection(locationId) {
 				applySelectionStyling();
 			}
 		}
+		else {
+			// When the location is a populated_place, clear any previous highlight
+			if (lastSelectedCountry) {
+				lastSelectedCountry = null;
+				// If your highlightCountry(...) can accept null to clear, do it too:
+				try { highlightCountry(null); } catch { }
+				applySelectionStyling(); // this should hide the selection layer
+			}
+		}		
 
 		showPicked(latitude, longitude, { title: locationName, titleSuffix: countryName || sovereignCountryName, subTitle: subRegion, iso_a2: iso_a2 });
 
