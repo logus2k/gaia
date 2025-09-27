@@ -3085,64 +3085,11 @@ function screenNorthBearingDegAt(centerLL) {
 }
 */
 
-function screenNorthBearingDegAt(centerLL) {
-	// Ensure matrices are current (cheap; helps if called mid-frame)
-	if (camera.updateMatrixWorld) camera.updateMatrixWorld();
-	if (globe.updateMatrixWorld) globe.updateMatrixWorld();
-
-	// Clamp latitude slightly away from the poles to avoid degeneracy
-	const poleSafeLat = 89.999; // minimal change; keep your behavior
-	const latDeg = Math.max(-poleSafeLat, Math.min(poleSafeLat, centerLL.lat));
-	const lonDeg = normalizeLon ? normalizeLon(centerLL.lon) : centerLL.lon;
-
-	const lat = THREE.MathUtils.degToRad(latDeg);
-	const lon = THREE.MathUtils.degToRad(lonDeg);
-
-	// Point on unit sphere and local tangent basis (LOCAL coords)
-	const clat = Math.cos(lat), slat = Math.sin(lat);
-	const clon = Math.cos(lon), slon = Math.sin(lon);
-	const pLocal = new THREE.Vector3(clat * clon, slat, clat * slon);
-	const northLocal = new THREE.Vector3(-slat * clon, clat, -slat * slon).normalize();
-	const eastLocal = new THREE.Vector3(-slon, 0, clon).normalize();
-
-	// Rotate into WORLD space using the globe's orientation
-	const qGlobe = globe.quaternion; // assumed normalized
-	const p = pLocal.clone().applyQuaternion(qGlobe);
-	const north = northLocal.clone().applyQuaternion(qGlobe);
-	const east = eastLocal.clone().applyQuaternion(qGlobe);
-
-	// Camera "screen up" in world space
-	const camUpWorld = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
-
-	// Project screen-up into the tangent plane at p
-	const upTangent = camUpWorld.clone().sub(p.clone().multiplyScalar(camUpWorld.dot(p)));
-
-	const len2 = upTangent.lengthSq();
-	if (len2 < 1e-12) return 0; // looking straight along the normal—bearing undefined; pick 0
-
-	upTangent.multiplyScalar(1 / Math.sqrt(len2)); // normalize
-
-	// Bearing: clockwise degrees from true north to projected screen-up
-	const x = upTangent.dot(east);
-	const y = upTangent.dot(north);
-	let brg = THREE.MathUtils.radToDeg(Math.atan2(x, y)); // [-180,180]
-
-	// Snap tiny jitter and kill -0
-	if (Math.abs(brg) < 0.05) brg = 0;
-	if (Object.is(brg, -0)) brg = 0;
-
-	return brg; // in [-180,180]
-}
-
-
 
 
 // Add this helper function to force bearing application
 function forceMapBearing(map, bearing, retries = 3) {
 
-	return;
-
-	/*
 	if (!map || retries <= 0) return;
 
 	try {
@@ -3174,7 +3121,62 @@ function forceMapBearing(map, bearing, retries = 3) {
 		console.error('Error applying bearing:', error);
 		setTimeout(() => forceMapBearing(map, bearing, retries - 1), 100);
 	}
-	*/
+}
+
+function screenNorthBearingDegAt(centerLL) {
+    // Ensure fresh matrix states
+    camera.updateMatrixWorld(true);
+    globe.updateMatrixWorld(true);
+    
+    // Clamp latitude more aggressively to avoid pole singularities
+    const safeLat = Math.max(-85, Math.min(85, centerLL.lat));
+    const lat = THREE.MathUtils.degToRad(safeLat);
+    const lon = THREE.MathUtils.degToRad(normalizeLon(centerLL.lon));
+    
+    // Build local coordinate frame
+    const clat = Math.cos(lat), slat = Math.sin(lat);
+    const clon = Math.cos(lon), slon = Math.sin(lon);
+    
+    // Surface point and tangent vectors in local space
+    const pLocal = new THREE.Vector3(clat * clon, slat, -clat * slon);
+    const northLocal = new THREE.Vector3(-slat * clon, clat, slat * slon);
+    const eastLocal = new THREE.Vector3(-slon, 0, -clon);
+    
+    // Transform to world space using globe rotation
+    const p = pLocal.clone().applyQuaternion(globe.quaternion);
+    const north = northLocal.clone().applyQuaternion(globe.quaternion);
+    const east = eastLocal.clone().applyQuaternion(globe.quaternion);
+    
+    // Get camera's screen axes in world space
+    const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+    const camUp = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+    
+    // Project north vector onto screen plane
+    const camForward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+    const northScreen = north.clone().sub(
+        camForward.clone().multiplyScalar(north.dot(camForward))
+    );
+    
+    if (northScreen.lengthSq() < 1e-10) {
+        // Looking straight down at pole - bearing is undefined
+        return 0;
+    }
+    
+    northScreen.normalize();
+    
+    // Calculate screen coordinates of north vector
+    const screenX = northScreen.dot(camRight);
+    const screenY = northScreen.dot(camUp);
+    
+    // MapLibre bearing: clockwise from north (north = 0°, east = 90°)
+    // Screen coordinates: +Y is up, +X is right
+    // Bearing = atan2(x, y) for clockwise-positive
+    let bearing = THREE.MathUtils.radToDeg(Math.atan2(screenX, screenY));
+    
+    // Normalize to [-180, 180] to match MapLibre convention
+    bearing = ((bearing + 180) % 360) - 180;
+    
+    return bearing;
 }
 
 
@@ -3353,32 +3355,36 @@ function ensureMap(centerLL, zoom, stylePref) {
 		const maybeExit2D = () => {
 			if (!map2dVisible || _exiting2D) return;
 			if (map.getZoom() > HANDOFF_Z_OUT) return;
-
+			
 			_exiting2D = true;
-			try { map.stop(); } catch { }
-
+			map.stop();
+			
 			const c = map.getCenter();
-			const center = { lat: c.lat, lon: normalizeLon(c.lng) };
-			const b360 = ((map.getBearing() % 360) + 360) % 360;
-
-			// Hide 2D first to avoid races with layout/paint
+			const mapBearing = map.getBearing();
+			
 			hideMap2D(true);
-
-			// Kill any residual 3D motion
-			if (typeof spinVel !== 'undefined' && spinVel?.set) spinVel.set(0, 0, 0);
-			if (typeof navTween !== 'undefined' && navTween?.stop) { try { navTween.stop(); } catch { } }
-			navTween = null;
-
-			// Near the poles, bearing is ill-defined — keep existing roll for stability
-			const nearPole = Math.abs(center.lat) > 89.5;
-
-			// Single, immediate handoff (no delayed "second" animation)
-			animateCenterOnGlobe(center.lat, center.lon, {
-				duration: 0,
-				preserveRoll: nearPole,
-				targetBearingDeg: nearPole ? undefined : b360
-			});
-
+			
+			// Calculate bearing delta from what we entered with
+			const bearingDelta = mapBearing - (_handoffPose?.bearing || 0);
+			
+			// Apply the delta to the stored globe quaternion
+			if (_handoffPose?.globeQuat) {
+				globe.quaternion.copy(_handoffPose.globeQuat);
+				
+				// Apply only the user's rotation in 2D
+				if (Math.abs(bearingDelta) > 0.1) {
+					const viewAxis = new THREE.Vector3(0, 0, -1)
+						.applyQuaternion(camera.quaternion);
+					const deltaRad = THREE.MathUtils.degToRad(-bearingDelta); // Negative for correct direction
+					const deltaQuat = new THREE.Quaternion()
+						.setFromAxisAngle(viewAxis, deltaRad);
+					globe.quaternion.premultiply(deltaQuat);
+				}
+			}
+			
+			// Now center on the new location
+			centerOnGlobe(c.lat, normalizeLon(c.lng));
+			
 			_exiting2D = false;
 		};
 
@@ -3395,28 +3401,27 @@ function ensureMap(centerLL, zoom, stylePref) {
 
 
 function showMap2D(centerLL, zoom) {
-	const stylePref = defaultMapStyleFromEarthControls();
+    const stylePref = defaultMapStyleFromEarthControls();
+    
+    // Stop ALL motion completely
+    if (navTween) { navTween = null; }
+    if (spinVel) spinVel.set(0, 0, 0);
+    
+    // Force render to ensure matrices are fresh
+    renderer.render(scene, camera);
+    
+    // Calculate bearing after everything is stable
+    const bearing = screenNorthBearingDegAt(centerLL);
+    
+    // Store exact globe state for return
+    _handoffPose = {
+        center: { lat: centerLL.lat, lon: normalizeLon(centerLL.lon) },
+        zoom,
+        bearing,
+        globeQuat: globe.quaternion.clone(), // Store exact quaternion
+        cameraQuat: camera.quaternion.clone()
+    };
 
-	// Stop any ongoing navigation/motion
-	if (typeof navTween !== 'undefined' && navTween && navTween.stop) {
-		try { navTween.stop(); } catch (_) { }
-	}
-	navTween = null;
-	if (spinVel && spinVel.set) spinVel.set(0, 0, 0);
-
-	// Ensure matrices are up to date before measuring
-	camera.updateMatrixWorld();
-	globe.updateMatrixWorld();
-
-	// Single, canonical bearing measurement
-	const bearing = screenNorthBearingDegAt(centerLL);
-
-	// Capture pose for 2D
-	_handoffPose = {
-		center: { lat: centerLL.lat, lon: normalizeLon(centerLL.lon) },
-		zoom,
-		bearing
-	};
 	_handoffGlobeQuaternion = globe.quaternion.clone();
 	_justEntered2D = true;
 
