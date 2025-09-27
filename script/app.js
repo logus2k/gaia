@@ -1258,8 +1258,10 @@ const Callout = (() => {
 
 
 	function hide() {
+
 		active = false;
-		calloutEl.style.display = 'none';
+		calloutEl.style.display = "none";
+
 		if (lineEl) { lineEl.setAttribute('x1', '0'); lineEl.setAttribute('y1', '0'); lineEl.setAttribute('x2', '0'); lineEl.setAttribute('y2', '0'); }
 		if (dotEl) dotEl.setAttribute('r', '0');
 
@@ -1271,6 +1273,11 @@ const Callout = (() => {
 		lastSelectedCountry = null;
 
 		syncSelectionTo2D();
+
+		if (calloutEl.__flagInstances) {
+			calloutEl.__flagInstances.forEach(inst => inst?.destroy?.());
+			calloutEl.__flagInstances = null;
+		}		
 	}
 
 	function update(force = false) {
@@ -1297,7 +1304,9 @@ const Callout = (() => {
 		}
 		calloutEl.style.display = 'block';
 		ensureLine();
+		window.dispatchEvent(new Event('resize'));
 
+		
 		// --- Compute globe center and screen-space radius along the anchor direction ---
 		earth.getWorldPosition(globeCenterW);
 		const centerPx = worldToScreen(globeCenterW);
