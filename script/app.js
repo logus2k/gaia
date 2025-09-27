@@ -1521,7 +1521,15 @@ const Callout = (() => {
         const radiusPx = Math.hypot(edgePx.x - centerPx.x, edgePx.y - centerPx.y);
 
         // FIXED ANCHOR: Screen coords for the geographic point (never smoothed)
-        const a = worldToScreen(aboveWorld); // anchor px - always exact
+        let a;
+        if (map2dVisible && map2d) {
+            // In 2D mode, project lat/lon to map coordinates
+            const mapPoint = map2d.project([lon, lat]);
+            a = { x: mapPoint.x, y: mapPoint.y };
+        } else {
+            // In 3D mode, use world-to-screen projection
+            a = worldToScreen(aboveWorld);
+        }
         
         // Check if globe has been rotated while manually positioned
         if (drag.isManuallyPositioned && !drag.isDragging) {
@@ -1682,7 +1690,6 @@ const Callout = (() => {
         configurePhysics
     };
 })();
-
 
 
 
@@ -3482,8 +3489,6 @@ function showMap2D(centerLL, zoom) {
 		});
 	}
 
-	// Hide 3D HUD while in 2D
-	if (calloutEl) calloutEl.style.display = 'none';
 	if (markersRoot) markersRoot.style.display = 'none';
 }
 
