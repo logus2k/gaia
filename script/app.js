@@ -2735,7 +2735,7 @@ async function handleLocationSelection(locationId) {
 		// Use the detailed data (render on map, show info panel, etc.)
 		// renderLocationDetails(locationDetails);
 
-		let latitude, longitude, locationName, countryName, sovereignCountryName, subRegion;
+		let latitude, longitude, locationName, countryName, sovereignCountryName, subRegion, iso_a2;
 
 		if (locationDetails.populated_places) {
 			// pickedInfo.textContent = `Selected: ${locationDetails.populated_places.properties.NAME} (${locationDetails.populated_places.properties.ADM0_A3})`;
@@ -2746,6 +2746,7 @@ async function handleLocationSelection(locationId) {
 			countryName = locationDetails.populated_places.properties.ADM0NAME;
 			sovereignCountryName = locationDetails.populated_places.properties.SOV0NAME;
 			subRegion = locationDetails.populated_places.properties.SUBREGION;
+			iso_a2 = locationDetails.populated_places.properties.ISO_A2;
 		}
 		else if (locationDetails.ne_10m_countries) {
 			// pickedInfo.textContent = `Selected: ${locationDetails.ne_10m_countries.properties.NAME} (${locationDetails.ne_10m_countries.properties.ADM0_A3})`;
@@ -2756,6 +2757,7 @@ async function handleLocationSelection(locationId) {
 			countryName = locationDetails.ne_10m_countries.properties.ADMIN;
 			sovereignCountryName = locationDetails.ne_10m_countries.properties.SOVEREIGNT;
 			subRegion = locationDetails.ne_10m_countries.properties.SUBREGION;
+			iso_a2 = locationDetails.ne_10m_countries.properties.ISO_A2;
 		}
 
 		/*
@@ -2784,7 +2786,7 @@ async function handleLocationSelection(locationId) {
 			}
 		}
 
-		showPicked(latitude, longitude, { title: locationName, titleSuffix: countryName || sovereignCountryName, subTitle: subRegion });
+		showPicked(latitude, longitude, { title: locationName, titleSuffix: countryName || sovereignCountryName, subTitle: subRegion, iso_a2: iso_a2 });
 
 	} catch (error) {
 		console.error('Failed to load location details:', error);
