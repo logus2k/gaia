@@ -39,22 +39,27 @@ body {
 }
 
 /* Only the link (the L) is clickable */
-.logo .logo-link, .logo .logo-link:visited {
-	pointer-events: auto; /* re-enable clicks for the link */
-	display: inline-block; /* click area = icon box only */
-	text-decoration: none; /* no underline */
+.logo .logo-link,
+.logo .logo-link:visited {
+	pointer-events: auto;
+	/* re-enable clicks for the link */
+	display: inline-block;
+	/* click area = icon box only */
+	text-decoration: none;
+	/* no underline */
 }
 
 
 .logo .logo-menu {
-    font-size: 30px !important;
-    color: #00E55D;
+	font-size: 30px !important;
+	color: #00E55D;
 	margin-top: 10px
 }
 
 /* Optional: keyboard focus ring for accessibility */
 .logo .logo-link:focus-visible .logo-icon {
-	outline: 2px solid #FFB000; /* or your green/orange of choice */
+	outline: 2px solid #FFB000;
+	/* or your green/orange of choice */
 	outline-offset: 2px;
 }
 
@@ -95,9 +100,9 @@ body {
 }
 
 .logo-badge img {
-    display: block;
-    max-width: 64px;
-    height: auto;
+	display: block;
+	max-width: 64px;
+	height: auto;
 }
 
 /* ───────────────────────────── Canvas / Overlay ───────────────────────── */
@@ -158,4 +163,9 @@ canvas {
 
 #map2d.visible {
 	display: block;
+}
+
+.flag-mount,
+.flag-mount canvas {
+	pointer-events: none;
 }

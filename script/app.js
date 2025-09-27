@@ -1066,12 +1066,87 @@ MarkerManager.addMarker('tokyo', { lat: 35.6762, lon: 139.6503, label: 'Tokyo' }
 // -------- Layout Manager --------------
 // ---------- Callout (edge panel + leader line + anchor dot) ----------
 const Callout = (() => {
+    let active = false;
+    let lat = 0, lon = 0, elevate = 0.012;
+    let lineEl = null, dotEl = null;
+    let lastGlobeQuaternion = null; // Add this to track globe rotation
+    let wasVisible = false;	
 
-	let active = false;
-	let lat = 0, lon = 0, elevate = 0.012;   // small lift above surface for the anchor point
-	let lineEl = null, dotEl = null;
+    // Add this helper function
+    function hasGlobeRotatedSignificantly() {
+        if (!lastGlobeQuaternion) {
+            lastGlobeQuaternion = globe.quaternion.clone();
+            return false;
+        }
+        
+        const currentQuat = globe.quaternion;
+        const angleDiff = Math.abs(lastGlobeQuaternion.angleTo(currentQuat));
+        
+        // If rotation difference is more than ~5 degrees, consider it significant
+        if (angleDiff > 0.087) { // 0.087 radians ≈ 5 degrees
+            lastGlobeQuaternion = currentQuat.clone();
+            return true;
+        }
+        return false;
+    }
+
+    // Add this function to refresh flags
+    function refreshFlags() {
+        if (calloutEl.__flagInstances) {
+            calloutEl.__flagInstances.forEach(inst => {
+                // Try different methods that might exist on WavingFlag
+                if (inst.resize) inst.resize();
+                if (inst.update) inst.update();
+                if (inst.refresh) inst.refresh();
+            });
+        }
+    }
 
 	const tmpCenter = new THREE.Vector3(), tmpCam = new THREE.Vector3(), globeCenterW = new THREE.Vector3();
+
+    function createFlags() {
+        const mounts = calloutEl.querySelectorAll('.flag-mount');
+        const instances = [];
+
+        mounts.forEach(m => {
+            const px = parseInt(m.dataset.px, 10) || 600;
+
+            // Container controls size (target is 4:3). Explicit height avoids 0-height edge cases.
+            m.style.width = px + 'px';
+            m.style.height = Math.round(px * 3 / 4) + 'px';   // 4:3
+            if (!m.style.position) m.style.position = 'relative';
+            if (!m.style.display) m.style.display = 'block';
+
+            const inst = new WavingFlag(m, {
+                transparent: true,
+                showPole: false,
+
+                // Container-controlled sizing
+                tightCanvas: false,
+                fitMargin: 1.10,
+
+                // Geometry & wave
+                flagWidth: 4,
+                flagHeight: 3,
+                segments: 256,
+                animationSpeed: 4,
+                frequency: { x: 4, y: 3 },
+                strength: 0.10,
+
+                // Placement nudges
+                offsetXFrac: -0.165,
+                offsetYFrac: 0.11,
+
+                crossOrigin: 'anonymous',
+                svgUrl: `./api/flag/${(m.dataset.iso || '').toUpperCase()}`
+            });
+
+            instances.push(inst);
+        });
+
+        // Keep refs to clean up next time
+        calloutEl.__flagInstances = instances;
+    }
 
 	function isFrontFacing(worldPoint) {
 		camera.getWorldPosition(tmpCam); globe.getWorldPosition(tmpCenter);
@@ -1180,78 +1255,36 @@ const Callout = (() => {
 	}
 
 
-	function show({ lat: la, lon: lo, calloutText: calloutText, lines }) {
-		// update coords
-		lat = la; lon = lo;
+    function show({ lat: la, lon: lo, calloutText: calloutText, lines }) {
+        // update coords
+        lat = la; lon = lo;
 
-		// Clean up previous flag instances for this callout
-		if (calloutEl.__flagInstances) {
-			calloutEl.__flagInstances.forEach(inst => inst?.destroy?.());
-			calloutEl.__flagInstances = null;
-		}
+        // Clean up previous flag instances for this callout
+        if (calloutEl.__flagInstances) {
+            calloutEl.__flagInstances.forEach(inst => inst?.destroy?.());
+            calloutEl.__flagInstances = null;
+        }
 
-		// Inject HTML (emits .flag-mount if iso_a2 exists)
-		calloutEl.innerHTML = buildHTML({ calloutText: calloutText, lines });
+        // Inject HTML (emits .flag-mount if iso_a2 exists)
+        calloutEl.innerHTML = buildHTML({ calloutText: calloutText, lines });
 
-		// Make the callout visible BEFORE measuring/initializing the flags
-		calloutEl.style.display = 'block';
+        // Make the callout visible BEFORE measuring/initializing the flags
+        calloutEl.style.display = 'block';
 
-		// Defer flag init one frame so layout is up-to-date
-		requestAnimationFrame(() => {
-			const mounts = calloutEl.querySelectorAll('.flag-mount');
-			const instances = [];
+        // Defer flag init one frame so layout is up-to-date
+        requestAnimationFrame(() => {
+            createFlags();
+        });
 
-			mounts.forEach(m => {
-				const px = parseInt(m.dataset.px, 10) || 600;
-
-				// Container controls size (target is 4:3). Explicit height avoids 0-height edge cases.
-				m.style.width = px + 'px';
-				m.style.height = Math.round(px * 3 / 4) + 'px';   // 4:3
-				if (!m.style.position) m.style.position = 'relative';
-				if (!m.style.display) m.style.display = 'block';
-
-				const inst = new WavingFlag(m, {
-					transparent: true,
-					showPole: false,
-
-					// Container-controlled sizing
-					tightCanvas: false,
-					fitMargin: 1.10,
-
-					// Geometry & wave
-					flagWidth: 4,
-					flagHeight: 3,
-					segments: 256,
-					animationSpeed: 4,
-					frequency: { x: 4, y: 3 },
-					strength: 0.10,
-
-					// Placement nudges
-					offsetXFrac: -0.165,
-					offsetYFrac: 0.11,
-
-					crossOrigin: 'anonymous',
-					svgUrl: `./api/flag/${(m.dataset.iso || '').toUpperCase()}`
-				});
-
-				instances.push(inst);
-			});
-
-			// Keep refs to clean up next time
-			calloutEl.__flagInstances = instances;
-
-			// In case other layout code adjusts sizes after this, trigger a resize pass
-			window.dispatchEvent(new Event('resize'));
-		});
-
-		// UI wiring
-		addCloseButton();
-		ensureLine();
-		sizeCalloutSvgToViewport();
-		
-		active = true;
-		update(true);
-	}
+        // UI wiring
+        addCloseButton();
+        ensureLine();
+        sizeCalloutSvgToViewport();
+        
+        active = true;
+        wasVisible = true; // Initialize as visible
+        update(true);
+    }
 
 
 
@@ -1259,8 +1292,9 @@ const Callout = (() => {
 
 	function hide() {
 
-		active = false;
-		calloutEl.style.display = "none";
+        active = false;
+        wasVisible = false; // Reset visibility tracking
+        calloutEl.style.display = 'none';
 
 		if (lineEl) { lineEl.setAttribute('x1', '0'); lineEl.setAttribute('y1', '0'); lineEl.setAttribute('x2', '0'); lineEl.setAttribute('y2', '0'); }
 		if (dotEl) dotEl.setAttribute('r', '0');
@@ -1291,24 +1325,45 @@ const Callout = (() => {
 		const surfWorld = surfLocal.clone().applyMatrix4(earth.matrixWorld);
 		const aboveWorld = aboveLocal.applyMatrix4(earth.matrixWorld);
 
-		const front = isFrontFacing(surfWorld);
-		if (!front) {
-			// Temporarily hide, but keep active so it can reappear when it rotates back
-			calloutEl.style.display = 'none';
-			if (lineEl) {
-				lineEl.setAttribute('x1', '0'); lineEl.setAttribute('y1', '0');
-				lineEl.setAttribute('x2', '0'); lineEl.setAttribute('y2', '0');
-			}
-			if (dotEl) dotEl.setAttribute('r', '0');
-			return;
-		}
-		calloutEl.style.display = 'block';
-		ensureLine();
+        const front = isFrontFacing(surfWorld);
+        if (!front) {
+            // Temporarily hide, but keep active so it can reappear when it rotates back
+            calloutEl.style.display = 'none';
+            if (lineEl) {
+                lineEl.setAttribute('x1', '0'); lineEl.setAttribute('y1', '0');
+                lineEl.setAttribute('x2', '0'); lineEl.setAttribute('y2', '0');
+            }
+            if (dotEl) dotEl.setAttribute('r', '0');
+            wasVisible = false; // Track that we're now hidden
+            return;
+        }
+
+        // Check if we're transitioning from hidden to visible
+        if (!wasVisible) {
+            // Recreate flags when becoming visible after being hidden
+            requestAnimationFrame(() => {
+                if (calloutEl.__flagInstances) {
+                    calloutEl.__flagInstances.forEach(inst => inst?.destroy?.());
+                }
+                createFlags();
+            });
+            wasVisible = true;
+        }
+
+        calloutEl.style.display = 'block';
+        ensureLine();
+
+		// Check for significant globe rotation and refresh flags if needed
+		if (hasGlobeRotatedSignificantly()) {
+			refreshFlags();
+		}		
 
 
+		/*
 		requestAnimationFrame(() => {
 			window.dispatchEvent(new Event('resize'));
 		});
+		*/
 
 		// --- Compute globe center and screen-space radius along the anchor direction ---
 		earth.getWorldPosition(globeCenterW);
