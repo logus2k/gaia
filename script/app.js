@@ -2861,7 +2861,8 @@ function renderSearchResults(items, coords) {
 
 	// Handle location search results
 	if (items.length === 0) {
-		resultsBox.innerHTML = '<div class="no-results">No locations found</div>';
+		// resultsBox.innerHTML = '<div class="no-results">No locations found</div>';
+		resultsBox.innerHTML = '<div class="no-results"></div>';
 		return;
 	}
 

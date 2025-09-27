@@ -53,7 +53,7 @@ export class LocationSearchClient {
      * Search for locations by query (exact prefix matching)
      */
     search(query, options = {}) {
-        const { limit = 50, type = 'all' } = options;
+        const { limit = 300, type = 'all' } = options;
         
         if (!this.isInitialized) {
             throw new Error('Search client not initialized. Call initialize() first.');
@@ -77,7 +77,7 @@ export class LocationSearchClient {
         
         for (const index of indices) {
             const entry = this.searchIndex[index];
-            if (entry && !seenIds.has(entry.id)) {
+            if (entry && !seenIds.has(entry.id) && entry.countryCode !== '-99') {
                 // Find the exact name that matched the prefix
                 const matchingNames = entry.names.filter(name => 
                     name.toLowerCase().startsWith(normalizedQuery)
@@ -89,25 +89,46 @@ export class LocationSearchClient {
                     
                     seenIds.add(entry.id);
                     
-                    // Use the first matching name as the display name for this entry
+                    // Use the first matching name as the display name
                     const displayName = matchingNames[0];
                     
                     results.push({
                         id: entry.id,
                         type: entry.type,
-                        name: displayName,  // Use the matching name, not the primary name!
+                        name: displayName,
                         countryCode: entry.countryCode,
+                        population: entry.population || 0, // Default to 0 if population is missing
                         score: this.calculateRelevanceScore(displayName, normalizedQuery)
                     });
                 }
             }
         }
         
-        // Sort by relevance score (higher first)
-        results.sort((a, b) => b.score - a.score);
+        // Separate countries and places
+        const countries = results.filter(r => r.type === 'country');
+        const places = results.filter(r => r.type === 'place');
+        
+        // Sort countries by population (descending), then by relevance score for ties
+        countries.sort((a, b) => {
+            if (b.population !== a.population) {
+                return b.population - a.population; // Higher population first
+            }
+            return b.score - a.score; // Higher score for equal populations
+        });
+        
+        // Sort places by population (descending), then by relevance score for ties
+        places.sort((a, b) => {
+            if (b.population !== a.population) {
+                return b.population - a.population; // Higher population first
+            }
+            return b.score - a.score; // Higher score for equal populations
+        });
+        
+        // Combine: countries first, then places
+        const sortedResults = [...countries, ...places];
         
         // Return results (limit to requested number)
-        return results.slice(0, limit).map(result => ({
+        return sortedResults.slice(0, limit).map(result => ({
             id: result.id,
             type: result.type,
             name: result.name,
