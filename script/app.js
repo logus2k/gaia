@@ -1230,47 +1230,6 @@ const Callout = (() => {
         
         // Update cursor style
         calloutEl.style.cursor = 'grab';
-        
-        // Remove reset button if present
-        const resetBtn = calloutEl.querySelector('button[aria-label="Reset position"]');
-        if (resetBtn) resetBtn.remove();
-    }
-
-    // Add reset button
-    function addResetButton() {
-        // Don't add if already exists
-        if (calloutEl.querySelector('button[aria-label="Reset position"]')) return;
-        
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.setAttribute('aria-label', 'Reset position');
-        btn.title = 'Reset to automatic positioning';
-        btn.textContent = '↻';
-        Object.assign(btn.style, {
-            position: 'absolute',
-            top: '6px',
-            right: '30px', // Next to close button
-            width: '20px',
-            height: '20px',
-            lineHeight: '18px',
-            textAlign: 'center',
-            border: 'none',
-            borderRadius: '999px',
-            background: 'rgba(0,0,0,0.3)',
-            color: '#fff',
-            fontSize: '12px',
-            cursor: 'pointer',
-            opacity: '0.85',
-            padding: '0',
-            zIndex: '10'
-        });
-        btn.addEventListener('mouseenter', () => (btn.style.opacity = '1'));
-        btn.addEventListener('mouseleave', () => (btn.style.opacity = '0.85'));
-        btn.addEventListener('click', (ev) => { 
-            ev.stopPropagation(); 
-            resetToAutoPosition();
-        });
-        calloutEl.appendChild(btn);
     }
 
     // Setup drag handlers
@@ -1322,9 +1281,6 @@ const Callout = (() => {
             
             calloutEl.style.cursor = 'grab';
             calloutEl.releasePointerCapture(e.pointerId);
-            
-            // Add reset button if not already present
-            addResetButton();
         };
 
         // Add event listeners
@@ -1728,6 +1684,8 @@ const Callout = (() => {
         configurePhysics
     };
 })();
+
+
 
 
 
