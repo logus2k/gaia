@@ -3,6 +3,9 @@
 import { initLLM } from "./llm-bridge.js";
 import { AudioResampler } from "./audioResampler.js";
 import { MenuManager } from "./menu.manager.js";
+import { LocationSearchClient } from "./location.search.client.js";
+import { RouterListener } from "./router-listener.js";
+
 
 
 export class ChatVoiceAssistant {
@@ -55,9 +58,13 @@ export class ChatVoiceAssistant {
 		this.ttsSocket = null;
 		this.ttsEnabled = false;
 		this.ttsPlayCtx = null;
-		this.ttsPlayQueue = Promise.resolve();		
-
+		this.ttsPlayQueue = Promise.resolve();	
+		
 		this._cssInjected = false;
+
+		
+		// Initialize the search client to integrate its results with globe interaction
+		this.searchClient = null;
 	}
 
 	/**
@@ -69,6 +76,9 @@ export class ChatVoiceAssistant {
 		this._injectRecordingCssOnce();
 
 		await this._initLlm();
+
+		this.searchClient = new LocationSearchClient();
+		this.searchClient.initialize();
 
 		this._wireTranscriptHandlers();
 
@@ -198,6 +208,35 @@ export class ChatVoiceAssistant {
 		this.send = send;
 		this.cancel = cancel;
 		this.getThreadId = getThreadId;
+
+		this.#initRouterAgent(this.client);
+	}
+
+	#initRouterAgent(client) {
+
+		const router = new RouterListener(client.socket, async (msg) => {
+			
+			if (msg && msg.Operation && msg.Operation === "LOCATE") {
+				
+				const searchTerm = msg.Term;
+				const items = this.searchClient.search(searchTerm);
+				let searchResultId = null;
+
+				if (items && items.length > 0) {
+
+					searchResultId = items[0].id;
+					const locationDetails = await this.searchClient.getLocationDetails(searchResultId);
+					
+					if (locationDetails) {
+						const locationId = locationDetails.id;
+
+						if (locationId) {
+							await window.handleLocationSelection?.(locationId);
+						}
+					}
+				}
+			}
+		});
 	}
 
 	/**

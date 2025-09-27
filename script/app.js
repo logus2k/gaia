@@ -2610,8 +2610,7 @@ function renderSearchResults(items, coords) {
 	resultsBox.innerHTML = '';
 
 	if (coords) {
-		// Handle coordinate results (your existing code)
-		// ... 
+		// Will handle coordinate results
 		return;
 	}
 
@@ -2650,7 +2649,7 @@ async function doSearch() {
 		return;
 	}
 
-	// Use the new search client for location search
+	// Use the "new" search client for location search
 	try {
 		const items = searchClient.search(q);
 		searchStatus.textContent = items.length ? `${items.length} result(s)` : 'No results';
@@ -2795,6 +2794,7 @@ async function handleLocationSelection(locationId) {
 		pickedInfo.textContent = 'Failed to load location details. Please try again.';
 	}
 }
+window.handleLocationSelection = handleLocationSelection;
 
 
 let searchTimer = null;

@@ -129,6 +129,7 @@ div.avatar-placeholder {
 	resize: none;
 	font-family: inherit;
 	border: none;
+	text-decoration: none;
 }
 
 /* Scrollbar (input) */
