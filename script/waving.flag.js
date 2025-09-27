@@ -354,7 +354,7 @@ export class WavingFlag {
       varying vec2 vUv;
       void main() {
           vec4 texColor = texture2D(uTexture, vUv);
-          texColor.rgb *= vDark + 0.87;
+          texColor.rgb *= vDark + 0.95;
           gl_FragColor = texColor;
       }
     `;

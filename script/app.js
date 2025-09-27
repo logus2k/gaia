@@ -762,11 +762,13 @@ function handle2DMapClick(e) {
 		const countryName = country.feature.properties.ADMIN;
 		const sovereignCountryName = country.feature.properties.SOVEREIGNT;
 		const subRegion = country.feature.properties.SUBREGION;
+		const iso_a2 = country.feature.properties.ISO_A2;
 
 		showPicked(lat, lon, {
 			title: countryName,
 			titleSuffix: sovereignCountryName,
-			subTitle: subRegion
+			subTitle: subRegion,
+			iso_a2: iso_a2
 		});
 
 		lastSelectedCountry = country;
@@ -1177,18 +1179,6 @@ const Callout = (() => {
 		calloutEl.appendChild(btn);
 	}
 
-	/*
-	function show({ lat: la, lon: lo, calloutText: calloutText, lines }) {
-		lat = la; lon = lo;
-		calloutEl.innerHTML = buildHTML({ calloutText: calloutText, lines });
-		addCloseButton();
-		calloutEl.style.display = 'block';
-		ensureLine();
-		sizeCalloutSvgToViewport();
-		active = true;
-		update(true);
-	}
-	*/
 
 	function show({ lat: la, lon: lo, calloutText: calloutText, lines }) {
 		// update coords
@@ -1214,7 +1204,7 @@ const Callout = (() => {
 			mounts.forEach(m => {
 				const px = parseInt(m.dataset.px, 10) || 600;
 
-				// Let the container control size (4:3). Explicit height avoids 0-height edge cases.
+				// Container controls size (target is 4:3). Explicit height avoids 0-height edge cases.
 				m.style.width = px + 'px';
 				m.style.height = Math.round(px * 3 / 4) + 'px';   // 4:3
 				if (!m.style.position) m.style.position = 'relative';
@@ -1224,7 +1214,7 @@ const Callout = (() => {
 					transparent: true,
 					showPole: false,
 
-					// Container-controlled sizing (important here)
+					// Container-controlled sizing
 					tightCanvas: false,
 					fitMargin: 1.10,
 
@@ -1236,7 +1226,7 @@ const Callout = (() => {
 					frequency: { x: 4, y: 3 },
 					strength: 0.10,
 
-					// Placement nudges you tuned
+					// Placement nudges
 					offsetXFrac: -0.165,
 					offsetYFrac: 0.11,
 
@@ -1254,10 +1244,11 @@ const Callout = (() => {
 			window.dispatchEvent(new Event('resize'));
 		});
 
-		// Your existing UI wiring
+		// UI wiring
 		addCloseButton();
 		ensureLine();
 		sizeCalloutSvgToViewport();
+		
 		active = true;
 		update(true);
 	}
@@ -1668,17 +1659,6 @@ graticuleHex.addEventListener('input', () => {
 chkClouds.addEventListener('change', () => { clouds.visible = chkClouds.checked; });
 clouds.visible = chkClouds.checked;
 
-/*
-cloudsAdditiveChk.addEventListener('change', () => {
-	const useUnlit = cloudsAdditiveChk.checked;
-	const mat = useUnlit ? cloudsMatUnlit : cloudsMatLit;
-	mat.blending = THREE.NormalBlending;
-	mat.depthWrite = true;
-	mat.needsUpdate = true;
-	clouds.material = mat;
-});
-*/
-
 
 // Labels toggle
 // chkLabels.addEventListener('change', (e) => { MarkerManager.setVisible(e.target.checked); });
@@ -1686,6 +1666,7 @@ cloudsAdditiveChk.addEventListener('change', () => {
 
 // View readout toggle
 // chkView.addEventListener('change', (e) => { viewRow.classList.toggle('hidden', !e.target.checked); });
+
 
 // Lighting
 function updateSunFromTime(tHours) {
@@ -2581,30 +2562,6 @@ function parseQueryToCoords(q) {
 }
 
 
-/*
-function searchCountriesByName(q) {
-	if (!COUNTRY_INDEX) return [];
-	const s = q.trim().toLowerCase();
-	if (!s) return [];
-	const hits = [];
-	for (const c of COUNTRY_INDEX) {
-		for (const n of c.names) {
-			if (String(n).toLowerCase().includes(s)) {
-				hits.push(c); break;
-			}
-		}
-	}
-	// dedupe and sort by name length then alpha
-	const seen = new Set(); const out = [];
-	for (const c of hits) {
-		if (seen.has(c.name)) continue;
-		seen.add(c.name); out.push(c);
-	}
-	out.sort((a, b) => a.name.length - b.name.length || a.name.localeCompare(b.name));
-	return out.slice(0, 20);
-}
-*/
-
 function renderSearchResults(items, coords) {
 	// Clear existing results
 	resultsBox.innerHTML = '';
@@ -2717,20 +2674,8 @@ function focusOnLocationGeometry(geometry) {
 async function handleLocationSelection(locationId) {
 	try {
 
-		/*
-		// Show loading state
-		searchStatus.textContent = 'Loading details...';
-		searchStatus.classList.add('loading');
-		*/
-
 		// Fetch detailed location information from the second API call
 		const locationDetails = await searchClient.getLocationDetails(locationId);
-
-		/*
-		// Hide loading state
-		searchStatus.classList.remove('loading');
-		searchStatus.textContent = 'Details loaded';
-		*/
 
 		// Use the detailed data (render on map, show info panel, etc.)
 		// renderLocationDetails(locationDetails);
@@ -2738,8 +2683,6 @@ async function handleLocationSelection(locationId) {
 		let latitude, longitude, locationName, countryName, sovereignCountryName, subRegion, iso_a2;
 
 		if (locationDetails.populated_places) {
-			// pickedInfo.textContent = `Selected: ${locationDetails.populated_places.properties.NAME} (${locationDetails.populated_places.properties.ADM0_A3})`;
-
 			latitude = locationDetails.populated_places.properties.LATITUDE;
 			longitude = locationDetails.populated_places.properties.LONGITUDE;
 			locationName = locationDetails.populated_places.properties.NAME;
@@ -2749,8 +2692,6 @@ async function handleLocationSelection(locationId) {
 			iso_a2 = locationDetails.populated_places.properties.ISO_A2;
 		}
 		else if (locationDetails.ne_10m_countries) {
-			// pickedInfo.textContent = `Selected: ${locationDetails.ne_10m_countries.properties.NAME} (${locationDetails.ne_10m_countries.properties.ADM0_A3})`;
-
 			latitude = locationDetails.ne_10m_countries.properties.LABEL_Y;
 			longitude = locationDetails.ne_10m_countries.properties.LABEL_X;
 			locationName = locationDetails.ne_10m_countries.properties.NAME;
@@ -2760,13 +2701,6 @@ async function handleLocationSelection(locationId) {
 			iso_a2 = locationDetails.ne_10m_countries.properties.ISO_A2;
 		}
 
-		/*
-		let locationMarkerText = locationName + ", " + countryName;
-
-		if (countryName !== sovereignCountryName) {
-			locationMarkerText += " (" + sovereignCountryName + ")";
-		}
-		*/
 
 		animateCenterOnGlobe(latitude, longitude);
 
