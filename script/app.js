@@ -1363,24 +1363,22 @@ const Callout = (() => {
         btn.textContent = '×';
         Object.assign(btn.style, {
             position: 'absolute',
-            top: '6px',
-            right: '6px',
+            top: '8px',
+            right: '10px',
             width: '20px',
             height: '20px',
-            lineHeight: '18px',
-            textAlign: 'center',
             border: 'none',
-            borderRadius: '999px',
-            background: 'transparent',
-            color: '#fff',
-            fontSize: '14px',
+            borderRadius: '4px',
+            background: 'rgba(255, 255, 255, 0.1)',
+            color: '#000000',
             cursor: 'pointer',
-            opacity: '0.85',
+            lineHeight: '1',
+            fontSize: '14px',
             padding: '0',
             zIndex: '10'
         });
-        btn.addEventListener('mouseenter', () => (btn.style.opacity = '1'));
-        btn.addEventListener('mouseleave', () => (btn.style.opacity = '0.85'));
+        btn.addEventListener('mouseenter', () => (btn.style.background = 'rgba(255, 176, 0, 0.85)'));
+        btn.addEventListener('mouseleave', () => (btn.style.background = 'rgba(255, 255, 255, 0.1)'));
         btn.addEventListener('click', (ev) => { ev.stopPropagation(); hide(); });
         calloutEl.appendChild(btn);
     }
