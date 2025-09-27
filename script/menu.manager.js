@@ -21,7 +21,7 @@ export class MenuManager {
             menuPosition: config.menuPosition || 'top-right',
             iconSize: config.menuIconSize || 40,
             margin: config.menuMargin || 16,
-            panelIds: config.panelIds || ['search', 'data', 'assistant', 'settings', 'about'],
+            panelIds: config.panelIds || ['search', 'data', 'assistant', 'about', 'settings'],
             initialVisibility: config.initialVisibility || {},
         };
 
@@ -71,8 +71,8 @@ export class MenuManager {
             { id: 'search', icon: 'search', label: 'Search' },
             { id: 'data', icon: 'description', label: 'Data Explorer' },
             { id: 'assistant', icon: 'smart_toy', label: 'Assistant' },
-            { id: 'settings', icon: 'settings', label: 'Settings' },
             { id: 'about', icon: 'info', label: 'About' },
+            { id: 'settings', icon: 'settings', label: 'Settings' }
         ];
 
         items.forEach(({ id, icon, label }) => {

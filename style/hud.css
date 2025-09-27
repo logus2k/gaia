@@ -55,10 +55,13 @@
 
 /* Positions */
 .hud.assistant {
-    top: 200px;
-    left: 500px;
+    bottom: 50px;
+    right: 20px;
+	width: 750px;
+	height: 400px;
     display: flex;
     flex-direction: column;
+	align-self: flex-end;
     min-width: 500px;
     min-height: 360px;
 }
@@ -66,13 +69,18 @@
 .hud.search {
 	top: 85px;
 	left: 20px;
+	width: 200px;
+	height: 400px;
 	overflow: hidden;
 }
 
 .hud.data {
-	top: 420px;
-	left: 20px;
-	overflow: hidden;	
+    bottom: 300px;
+    left: 20px;
+    width: 500px;
+    height: 400px;
+    align-self: flex-end;
+    overflow: hidden;
 }
 
 .hud.settings {
@@ -85,11 +93,10 @@
 }
 
 .hud.about {
-    top: 50%;
-    left: 50%;
-    right: auto;
-    bottom: auto;
-    width: min(500px, 92vw);
+    top: calc(50% - 300px);
+    left: calc(50% - 250px);
+	width: 500px;
+	height: 600px;
 	overflow: hidden;
 }
 
@@ -473,11 +480,12 @@ input[type="text"], input[type="search"] {
 }
 
 div.results {
-	margin: 6px 6px 6px 0px;
-	max-height: 400px;
-	overflow: auto;
-	border-radius: 8px;
-	border: 1px solid rgba(255, 255, 255, .14);
+    grid-auto-columns: auto !important;
+    margin: 6px 6px 6px 0px;
+    max-height: -webkit-fill-available;
+    overflow: auto;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, .14);
 }
 
 div.search-result-item {
