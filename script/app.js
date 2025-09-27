@@ -1069,10 +1069,39 @@ const Callout = (() => {
     let active = false;
     let lat = 0, lon = 0, elevate = 0.012;
     let lineEl = null, dotEl = null;
-    let lastGlobeQuaternion = null; // Add this to track globe rotation
-    let wasVisible = false;	
+    let lastGlobeQuaternion = null; // Track globe rotation
+    let wasVisible = false;
 
-    // Add this helper function
+    // Physics configuration for flexible lines
+    const physics = {
+        enabled: true, // Set to false for rigid straight line
+        springK: 0.08,
+        damping: 0.85,
+        controlPoint: { x: 0, y: 0 },
+        targetControl: { x: 0, y: 0 },
+        velocity: { x: 0, y: 0 },
+        maxSag: 80,
+        sagFactor: 0.25
+    };
+
+    // Drag state for manual positioning
+    const drag = {
+        isDragging: false,
+        startX: 0,
+        startY: 0,
+        startLeft: 0,
+        startTop: 0,
+        offsetX: 0,
+        offsetY: 0,
+        isManuallyPositioned: false,
+        lastAnchorX: 0,
+        lastAnchorY: 0,
+        anchorMovementThreshold: 50 // pixels
+    };
+
+    const tmpCenter = new THREE.Vector3(), tmpCam = new THREE.Vector3(), globeCenterW = new THREE.Vector3();
+
+    // Check for significant globe rotation
     function hasGlobeRotatedSignificantly() {
         if (!lastGlobeQuaternion) {
             lastGlobeQuaternion = globe.quaternion.clone();
@@ -1090,7 +1119,7 @@ const Callout = (() => {
         return false;
     }
 
-    // Add this function to refresh flags
+    // Refresh flags when needed
     function refreshFlags() {
         if (calloutEl.__flagInstances) {
             calloutEl.__flagInstances.forEach(inst => {
@@ -1098,12 +1127,12 @@ const Callout = (() => {
                 if (inst.resize) inst.resize();
                 if (inst.update) inst.update();
                 if (inst.refresh) inst.refresh();
+                if (inst._frameScene) inst._frameScene();
             });
         }
     }
 
-	const tmpCenter = new THREE.Vector3(), tmpCam = new THREE.Vector3(), globeCenterW = new THREE.Vector3();
-
+    // Create flag instances
     function createFlags() {
         const mounts = calloutEl.querySelectorAll('.flag-mount');
         const instances = [];
@@ -1148,112 +1177,257 @@ const Callout = (() => {
         calloutEl.__flagInstances = instances;
     }
 
-	function isFrontFacing(worldPoint) {
-		camera.getWorldPosition(tmpCam); globe.getWorldPosition(tmpCenter);
-		const normal = worldPoint.clone().sub(tmpCenter).normalize();
-		const view = tmpCam.clone().sub(worldPoint).normalize();
-		return normal.dot(view) > HORIZON_BIAS;
-	}
+    // Physics functions
+    function resetPhysics(startX, startY, endX, endY) {
+        // Initialize physics state
+        const midX = (startX + endX) / 2;
+        const midY = (startY + endY) / 2;
+        const distance = Math.hypot(endX - startX, endY - startY);
+        const sag = Math.min(distance * physics.sagFactor, physics.maxSag);
 
-	function ensureLine() {
-		if (!lineEl) {
-			lineEl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-			lineEl.setAttribute('stroke', 'rgba(255,255,255,0.65)');
-			lineEl.setAttribute('stroke-width', '1.0');
-			lineEl.setAttribute('stroke-linecap', 'round');
-			calloutSvg.appendChild(lineEl);
-		}
-		if (!dotEl) {
-			dotEl = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-			dotEl.setAttribute('r', '3.0');  // dot size
-			dotEl.setAttribute('fill', 'white');
-			dotEl.setAttribute('stroke', 'rgba(0,0,0,0.5)');
-			dotEl.setAttribute('stroke-width', '1');
-			calloutSvg.appendChild(dotEl);
-		}
-		return lineEl;
-	}
+        physics.controlPoint.x = midX;
+        physics.controlPoint.y = midY + sag;
+        physics.targetControl.x = midX;
+        physics.targetControl.y = midY + sag;
+        physics.velocity.x = 0;
+        physics.velocity.y = 0;
+    }
 
-	/*
-	function buildHTML({ calloutText: calloutText, lines }) {
+    function updateLinePhysics(startX, startY, endX, endY) {
+        if (!physics.enabled) return;
 
-		const coordinates = (lines || []).map(s => `<div class="calloutNotes">${s}</div>`).join('');
+        // Calculate ideal control point (mid-point with some sag)
+        const midX = (startX + endX) / 2;
+        const midY = (startY + endY) / 2;
+        const distance = Math.hypot(endX - startX, endY - startY);
+        const sag = Math.min(distance * physics.sagFactor, physics.maxSag);
 
-		const titleSuffix = calloutText.titleSuffix && (calloutText.title && calloutText.titleSuffix !== calloutText.title) ? `<span class="callOutTitleSuffix">, ${calloutText.titleSuffix}</span>` : "";
-		const title = calloutText.title ? `<div class="calloutTitle">${calloutText.title}${titleSuffix}</div>` : "";
-		const subTitle = calloutText.subTitle ? `<div class="calloutSubTitle">${calloutText.subTitle}</div>` : "";
-		const notes = coordinates ? coordinates : "";
+        physics.targetControl.x = midX;
+        physics.targetControl.y = midY + sag;
 
-		const flag = calloutText.iso_a2 ? `<div class="calloutFlag"><img src="./api/flag/${calloutText.iso_a2.toLowerCase()}" /></div>` : "";
+        // Apply spring forces to control point
+        const dx = physics.targetControl.x - physics.controlPoint.x;
+        const dy = physics.targetControl.y - physics.controlPoint.y;
 
-		return `
-			${flag}
-			${title}
-			<div class="sep"></div>
-			${subTitle}
-			${notes}
-		`;
-	}
-	*/
+        physics.velocity.x += dx * physics.springK;
+        physics.velocity.y += dy * physics.springK;
 
-	function buildHTML({ calloutText: calloutText, lines }) {
-		const coordinates = (lines || []).map(s => `<div class="calloutNotes">${s}</div>`).join('');
+        physics.velocity.x *= physics.damping;
+        physics.velocity.y *= physics.damping;
 
-		const titleSuffix = calloutText.titleSuffix &&
-			(calloutText.title && calloutText.titleSuffix !== calloutText.title)
-			? `<span class="callOutTitleSuffix">, ${calloutText.titleSuffix}</span>` : "";
+        // Update position (assuming 60fps for consistent physics)
+        physics.controlPoint.x += physics.velocity.x;
+        physics.controlPoint.y += physics.velocity.y;
+    }
 
-		const title = calloutText.title ? `<div class="calloutTitle">${calloutText.title}${titleSuffix}</div>` : "";
-		const subTitle = calloutText.subTitle ? `<div class="calloutSubTitle">${calloutText.subTitle}</div>` : "";
-		const notes = coordinates || "";
+    // Reset to automatic positioning
+    function resetToAutoPosition() {
+        drag.isManuallyPositioned = false;
+        drag.offsetX = 0;
+        drag.offsetY = 0;
+        update.currentLeft = undefined;
+        update.currentTop = undefined;
+        
+        // Update cursor style
+        calloutEl.style.cursor = 'grab';
+        
+        // Remove reset button if present
+        const resetBtn = calloutEl.querySelector('button[aria-label="Reset position"]');
+        if (resetBtn) resetBtn.remove();
+    }
 
-		// ⬇️ Replace <img> with a mount for WavingFlag
-		const iso = (calloutText.iso_a2 || '').toString().trim().toUpperCase();
-		const flag = iso
-			? `<div class="calloutFlag">
-				<div class="flag-mount" data-iso="${iso}" data-px="100"></div>
-			</div>`
-			: "";
+    // Add reset button
+    function addResetButton() {
+        // Don't add if already exists
+        if (calloutEl.querySelector('button[aria-label="Reset position"]')) return;
+        
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.setAttribute('aria-label', 'Reset position');
+        btn.title = 'Reset to automatic positioning';
+        btn.textContent = '↻';
+        Object.assign(btn.style, {
+            position: 'absolute',
+            top: '6px',
+            right: '30px', // Next to close button
+            width: '20px',
+            height: '20px',
+            lineHeight: '18px',
+            textAlign: 'center',
+            border: 'none',
+            borderRadius: '999px',
+            background: 'rgba(0,0,0,0.3)',
+            color: '#fff',
+            fontSize: '12px',
+            cursor: 'pointer',
+            opacity: '0.85',
+            padding: '0',
+            zIndex: '10'
+        });
+        btn.addEventListener('mouseenter', () => (btn.style.opacity = '1'));
+        btn.addEventListener('mouseleave', () => (btn.style.opacity = '0.85'));
+        btn.addEventListener('click', (ev) => { 
+            ev.stopPropagation(); 
+            resetToAutoPosition();
+        });
+        calloutEl.appendChild(btn);
+    }
 
-		return `
-			${flag}
-			${title}
-			<div class="sep"></div>
-			${subTitle}
-			${notes}
-		`;
-	}
+    // Setup drag handlers
+    function setupDragHandlers() {
+        let startX, startY, startLeft, startTop;
 
+        const onPointerDown = (e) => {
+            // Don't drag if clicking on buttons
+            if (e.target.tagName === 'BUTTON') return;
+            
+            drag.isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            startLeft = update.currentLeft || 0;
+            startTop = update.currentTop || 0;
+            
+            calloutEl.style.cursor = 'grabbing';
+            calloutEl.setPointerCapture(e.pointerId);
+            e.preventDefault();
+        };
 
-	function addCloseButton() {
-		const btn = document.createElement('button');
-		btn.type = 'button';
-		btn.setAttribute('aria-label', 'Close marker');
-		btn.title = 'Close';
-		btn.textContent = '×';
-		Object.assign(btn.style, {
-			position: 'absolute',
-			top: '6px',
-			right: '6px',
-			width: '20px',
-			height: '20px',
-			lineHeight: '18px',
-			textAlign: 'center',
-			border: 'none',
-			borderRadius: '999px',
-			background: 'transparent',
-			color: '#fff',
-			fontSize: '14px',
-			cursor: 'pointer',
-			opacity: '0.85',
-			padding: '0',
-		});
-		btn.addEventListener('mouseenter', () => (btn.style.opacity = '1'));
-		btn.addEventListener('mouseleave', () => (btn.style.opacity = '0.85'));
-		btn.addEventListener('click', (ev) => { ev.stopPropagation(); hide(); });
-		calloutEl.appendChild(btn);
-	}
+        const onPointerMove = (e) => {
+            if (!drag.isDragging) return;
+            
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+            
+            drag.offsetX = deltaX;
+            drag.offsetY = deltaY;
+            
+            // Apply position immediately
+            const newLeft = startLeft + deltaX;
+            const newTop = startTop + deltaY;
+            
+            calloutEl.style.left = `${newLeft}px`;
+            calloutEl.style.top = `${newTop}px`;
+            
+            update.currentLeft = newLeft;
+            update.currentTop = newTop;
+            
+            e.preventDefault();
+        };
 
+        const onPointerUp = (e) => {
+            if (!drag.isDragging) return;
+            
+            drag.isDragging = false;
+            drag.isManuallyPositioned = true;
+            
+            calloutEl.style.cursor = 'grab';
+            calloutEl.releasePointerCapture(e.pointerId);
+            
+            // Add reset button if not already present
+            addResetButton();
+        };
+
+        // Add event listeners
+        calloutEl.addEventListener('pointerdown', onPointerDown);
+        calloutEl.addEventListener('pointermove', onPointerMove);
+        calloutEl.addEventListener('pointerup', onPointerUp);
+        calloutEl.addEventListener('pointercancel', onPointerUp);
+        
+        // Set initial cursor
+        calloutEl.style.cursor = 'grab';
+        calloutEl.style.userSelect = 'none';
+    }
+
+    function isFrontFacing(worldPoint) {
+        camera.getWorldPosition(tmpCam); globe.getWorldPosition(tmpCenter);
+        const normal = worldPoint.clone().sub(tmpCenter).normalize();
+        const view = tmpCam.clone().sub(worldPoint).normalize();
+        return normal.dot(view) > HORIZON_BIAS;
+    }
+
+    function ensureLine() {
+        if (!lineEl) {
+            if (physics.enabled) {
+                // Create path element for flexible line
+                lineEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                lineEl.setAttribute('fill', 'none');
+            } else {
+                // Create line element for rigid line
+                lineEl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            }
+            lineEl.setAttribute('stroke', 'rgba(255,255,255,0.65)');
+            lineEl.setAttribute('stroke-width', '1.5');
+            lineEl.setAttribute('stroke-linecap', 'round');
+            calloutSvg.appendChild(lineEl);
+        }
+        if (!dotEl) {
+            dotEl = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            dotEl.setAttribute('r', '3.0');  // dot size
+            dotEl.setAttribute('fill', 'white');
+            dotEl.setAttribute('stroke', 'rgba(0,0,0,0.5)');
+            dotEl.setAttribute('stroke-width', '1');
+            calloutSvg.appendChild(dotEl);
+        }
+        return lineEl;
+    }
+
+    function buildHTML({ calloutText: calloutText, lines }) {
+        const coordinates = (lines || []).map(s => `<div class="calloutNotes">${s}</div>`).join('');
+
+        const titleSuffix = calloutText.titleSuffix &&
+            (calloutText.title && calloutText.titleSuffix !== calloutText.title)
+            ? `<span class="callOutTitleSuffix">, ${calloutText.titleSuffix}</span>` : "";
+
+        const title = calloutText.title ? `<div class="calloutTitle">${calloutText.title}${titleSuffix}</div>` : "";
+        const subTitle = calloutText.subTitle ? `<div class="calloutSubTitle">${calloutText.subTitle}</div>` : "";
+        const notes = coordinates || "";
+
+        // Replace <img> with a mount for WavingFlag
+        const iso = (calloutText.iso_a2 || '').toString().trim().toUpperCase();
+        const flag = iso
+            ? `<div class="calloutFlag">
+                <div class="flag-mount" data-iso="${iso}" data-px="100"></div>
+            </div>`
+            : "";
+
+        return `
+            ${flag}
+            ${title}
+            <div class="sep"></div>
+            ${subTitle}
+            ${notes}
+        `;
+    }
+
+    function addCloseButton() {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.setAttribute('aria-label', 'Close marker');
+        btn.title = 'Close';
+        btn.textContent = '×';
+        Object.assign(btn.style, {
+            position: 'absolute',
+            top: '6px',
+            right: '6px',
+            width: '20px',
+            height: '20px',
+            lineHeight: '18px',
+            textAlign: 'center',
+            border: 'none',
+            borderRadius: '999px',
+            background: 'transparent',
+            color: '#fff',
+            fontSize: '14px',
+            cursor: 'pointer',
+            opacity: '0.85',
+            padding: '0',
+            zIndex: '10'
+        });
+        btn.addEventListener('mouseenter', () => (btn.style.opacity = '1'));
+        btn.addEventListener('mouseleave', () => (btn.style.opacity = '0.85'));
+        btn.addEventListener('click', (ev) => { ev.stopPropagation(); hide(); });
+        calloutEl.appendChild(btn);
+    }
 
     function show({ lat: la, lon: lo, calloutText: calloutText, lines }) {
         // update coords
@@ -1264,6 +1438,15 @@ const Callout = (() => {
             calloutEl.__flagInstances.forEach(inst => inst?.destroy?.());
             calloutEl.__flagInstances = null;
         }
+
+        // Reset line element to allow recreation with correct type
+        if (lineEl) {
+            lineEl.remove();
+            lineEl = null;
+        }
+
+        // Reset positioning state
+        resetToAutoPosition();
 
         // Inject HTML (emits .flag-mount if iso_a2 exists)
         calloutEl.innerHTML = buildHTML({ calloutText: calloutText, lines });
@@ -1278,6 +1461,7 @@ const Callout = (() => {
 
         // UI wiring
         addCloseButton();
+        setupDragHandlers();
         ensureLine();
         sizeCalloutSvgToViewport();
         
@@ -1286,52 +1470,68 @@ const Callout = (() => {
         update(true);
     }
 
-
-
-
-
-	function hide() {
-
+    function hide() {
         active = false;
         wasVisible = false; // Reset visibility tracking
         calloutEl.style.display = 'none';
 
-		if (lineEl) { lineEl.setAttribute('x1', '0'); lineEl.setAttribute('y1', '0'); lineEl.setAttribute('x2', '0'); lineEl.setAttribute('y2', '0'); }
-		if (dotEl) dotEl.setAttribute('r', '0');
+        // Reset drag state
+        drag.isDragging = false;
+        drag.isManuallyPositioned = false;
+        drag.offsetX = 0;
+        drag.offsetY = 0;
 
-		// remove selection visuals
-		clearSelectedBorders();
-		clearSelectedFill();
-		clearSelectionOverlay();
+        if (lineEl) {
+            if (physics.enabled) {
+                lineEl.setAttribute('d', '');
+            } else {
+                lineEl.setAttribute('x1', '0');
+                lineEl.setAttribute('y1', '0');
+                lineEl.setAttribute('x2', '0');
+                lineEl.setAttribute('y2', '0');
+            }
+        }
+        if (dotEl) dotEl.setAttribute('r', '0');
 
-		lastSelectedCountry = null;
+        // remove selection visuals
+        clearSelectedBorders();
+        clearSelectedFill();
+        clearSelectionOverlay();
 
-		syncSelectionTo2D();
+        lastSelectedCountry = null;
 
-		if (calloutEl.__flagInstances) {
-			calloutEl.__flagInstances.forEach(inst => inst?.destroy?.());
-			calloutEl.__flagInstances = null;
-		}		
-	}
+        syncSelectionTo2D();
 
-	function update(force = false) {
-		if (!active) return;
+        if (calloutEl.__flagInstances) {
+            calloutEl.__flagInstances.forEach(inst => inst?.destroy?.());
+            calloutEl.__flagInstances = null;
+        }
+    }
 
-		// Anchor: surface & slightly above for clarity
-		const surfLocal = latLonToVector3(lat, lon, R);
-		const aboveLocal = latLonToVector3(lat, lon, R * (1 + elevate));
+    function update(force = false) {
+        if (!active) return;
 
-		earth.updateMatrixWorld(true);
-		const surfWorld = surfLocal.clone().applyMatrix4(earth.matrixWorld);
-		const aboveWorld = aboveLocal.applyMatrix4(earth.matrixWorld);
+        // Anchor: surface & slightly above for clarity
+        const surfLocal = latLonToVector3(lat, lon, R);
+        const aboveLocal = latLonToVector3(lat, lon, R * (1 + elevate));
+
+        earth.updateMatrixWorld(true);
+        const surfWorld = surfLocal.clone().applyMatrix4(earth.matrixWorld);
+        const aboveWorld = aboveLocal.applyMatrix4(earth.matrixWorld);
 
         const front = isFrontFacing(surfWorld);
         if (!front) {
             // Temporarily hide, but keep active so it can reappear when it rotates back
             calloutEl.style.display = 'none';
             if (lineEl) {
-                lineEl.setAttribute('x1', '0'); lineEl.setAttribute('y1', '0');
-                lineEl.setAttribute('x2', '0'); lineEl.setAttribute('y2', '0');
+                if (physics.enabled) {
+                    lineEl.setAttribute('d', '');
+                } else {
+                    lineEl.setAttribute('x1', '0');
+                    lineEl.setAttribute('y1', '0');
+                    lineEl.setAttribute('x2', '0');
+                    lineEl.setAttribute('y2', '0');
+                }
             }
             if (dotEl) dotEl.setAttribute('r', '0');
             wasVisible = false; // Track that we're now hidden
@@ -1353,124 +1553,182 @@ const Callout = (() => {
         calloutEl.style.display = 'block';
         ensureLine();
 
-		// Check for significant globe rotation and refresh flags if needed
-		if (hasGlobeRotatedSignificantly()) {
-			refreshFlags();
-		}		
+        // Check for significant globe rotation and refresh flags if needed
+        if (hasGlobeRotatedSignificantly()) {
+            refreshFlags();
+        }
 
+        // --- Compute globe center and screen-space radius along the anchor direction ---
+        earth.getWorldPosition(globeCenterW);
+        const centerPx = worldToScreen(globeCenterW);
+        const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion).normalize();
+        const edgeWorld = globeCenterW.clone().add(camRight.multiplyScalar(R * ATMO.scale));
+        const edgePx = worldToScreen(edgeWorld);
+        const radiusPx = Math.hypot(edgePx.x - centerPx.x, edgePx.y - centerPx.y);
 
-		/*
-		requestAnimationFrame(() => {
-			window.dispatchEvent(new Event('resize'));
-		});
-		*/
+        // FIXED ANCHOR: Screen coords for the geographic point (never smoothed)
+        const a = worldToScreen(aboveWorld); // anchor px - always exact
+        
+        // Check if globe has been rotated while manually positioned
+        if (drag.isManuallyPositioned && !drag.isDragging) {
+            const anchorMovement = Math.hypot(
+                a.x - drag.lastAnchorX, 
+                a.y - drag.lastAnchorY
+            );
+            
+            if (anchorMovement > drag.anchorMovementThreshold) {
+                // Globe has been rotated significantly - return to auto positioning
+                resetToAutoPosition();
+            }
+        }
+        
+        // Update last anchor position
+        drag.lastAnchorX = a.x;
+        drag.lastAnchorY = a.y;
 
-		// --- Compute globe center and screen-space radius along the anchor direction ---
-		earth.getWorldPosition(globeCenterW);
-		const centerPx = worldToScreen(globeCenterW);
-		const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion).normalize();
-		const edgeWorld = globeCenterW.clone().add(camRight.multiplyScalar(R * ATMO.scale));
-		const edgePx = worldToScreen(edgeWorld);
-		const radiusPx = Math.hypot(edgePx.x - centerPx.x, edgePx.y - centerPx.y);
+        const vw = renderer.domElement.clientWidth;
+        const vh = renderer.domElement.clientHeight;
+        const PAD = radiusPx * 0.25;
+        const GAP = radiusPx * 0.25;
+        const MAX_TOP = vh - PAD - calloutEl.offsetHeight;
 
-		// FIXED ANCHOR: Screen coords for the geographic point (never smoothed)
-		const a = worldToScreen(aboveWorld); // anchor px - always exact
-		const vw = renderer.domElement.clientWidth;
-		const vh = renderer.domElement.clientHeight;
-		const PAD = radiusPx * 0.25;
-		const GAP = radiusPx * 0.25;
-		const MAX_TOP = vh - PAD - calloutEl.offsetHeight;
+        // Calculate panel position (automatic or manual)
+        let finalLeftPx, finalTopPx;
+        
+        if (!drag.isManuallyPositioned && !drag.isDragging) {
+            // AUTOMATIC POSITIONING
+            // Direction from center to anchor in screen space
+            let vx = a.x - centerPx.x, vy = a.y - centerPx.y;
+            const len = Math.hypot(vx, vy);
+            if (len < 1e-3) {
+                vx = (a.x < vw * 0.5) ? -1 : 1; vy = 0;
+            } else {
+                vx /= len; vy /= len;
+            }
 
-		// Direction from center to anchor in screen space
-		let vx = a.x - centerPx.x, vy = a.y - centerPx.y;
-		const len = Math.hypot(vx, vy);
-		if (len < 1e-3) {
-			vx = (a.x < vw * 0.5) ? -1 : 1; vy = 0;
-		} else {
-			vx /= len; vy /= len;
-		}
+            // Calculate TARGET position for the panel (where we want the panel to be)
+            const px = centerPx.x + vx * (radiusPx + GAP);
+            const py = centerPx.y + vy * (radiusPx + GAP);
 
-		// Calculate TARGET position for the panel (where we want the panel to be)
-		const px = centerPx.x + vx * (radiusPx + GAP);
-		const py = centerPx.y + vy * (radiusPx + GAP);
+            const panelW = calloutEl.offsetWidth || 280;
+            const panelH = calloutEl.offsetHeight || 120;
+            let targetLeftPx;
+            if (vx >= 0) {
+                targetLeftPx = Math.min(vw - PAD - panelW, Math.max(PAD, px));
+            } else {
+                targetLeftPx = Math.min(vw - PAD, Math.max(PAD, px - panelW));
+            }
+            const targetTopPx = Math.min(MAX_TOP, Math.max(PAD, py - panelH / 2));
 
-		const panelW = calloutEl.offsetWidth || 280;
-		const panelH = calloutEl.offsetHeight || 120;
-		let targetLeftPx;
-		if (vx >= 0) {
-			targetLeftPx = Math.min(vw - PAD - panelW, Math.max(PAD, px));
-		} else {
-			targetLeftPx = Math.min(vw - PAD, Math.max(PAD, px - panelW));
-		}
-		const targetTopPx = Math.min(MAX_TOP, Math.max(PAD, py - panelH / 2));
+            // SMOOTH PANEL MOVEMENT: Only interpolate the panel position, not the anchor
+            if (!update.currentLeft) update.currentLeft = targetLeftPx;
+            if (!update.currentTop) update.currentTop = targetTopPx;
 
-		// SMOOTH PANEL MOVEMENT: Only interpolate the panel position, not the anchor
-		if (!update.currentLeft) update.currentLeft = targetLeftPx;
-		if (!update.currentTop) update.currentTop = targetTopPx;
+            // Damping factor - adjust this to control panel smoothness
+            const DAMPING = 0.03; // Similar to OrbitControls dampingFactor
 
-		// Damping factor - adjust this to control panel smoothness
-		const DAMPING = 0.03; // Similar to OrbitControls dampingFactor
+            // Smoothly interpolate panel position toward target
+            update.currentLeft += (targetLeftPx - update.currentLeft) * DAMPING;
+            update.currentTop += (targetTopPx - update.currentTop) * DAMPING;
 
-		// Smoothly interpolate panel position toward target
-		update.currentLeft += (targetLeftPx - update.currentLeft) * DAMPING;
-		update.currentTop += (targetTopPx - update.currentTop) * DAMPING;
+            finalLeftPx = Math.round(update.currentLeft);
+            finalTopPx = Math.round(update.currentTop);
+            
+            // Apply the smoothed position to the panel
+            calloutEl.style.left = `${finalLeftPx}px`;
+            calloutEl.style.right = '';
+            calloutEl.style.top = `${finalTopPx}px`;
+        } else {
+            // MANUAL POSITIONING - use current position
+            finalLeftPx = update.currentLeft || 0;
+            finalTopPx = update.currentTop || 0;
+        }
 
-		// Apply the smoothed position to the panel
-		calloutEl.style.left = `${Math.round(update.currentLeft)}px`;
-		calloutEl.style.right = '';
-		calloutEl.style.top = `${Math.round(update.currentTop)}px`;
+        // Line connects FIXED anchor point to center of nearest panel side
+        const r = calloutEl.getBoundingClientRect();
 
-		// Line connects FIXED anchor point to center of nearest panel side
-		const r = calloutEl.getBoundingClientRect();
+        // Calculate the center points of each side
+        const leftCenter = { x: r.left, y: r.top + r.height / 2 };
+        const rightCenter = { x: r.right, y: r.top + r.height / 2 };
+        const topCenter = { x: r.left + r.width / 2, y: r.top };
+        const bottomCenter = { x: r.left + r.width / 2, y: r.bottom };
 
-		// Calculate the center points of each side
-		const leftCenter = { x: r.left, y: r.top + r.height / 2 };
-		const rightCenter = { x: r.right, y: r.top + r.height / 2 };
-		const topCenter = { x: r.left + r.width / 2, y: r.top };
-		const bottomCenter = { x: r.left + r.width / 2, y: r.bottom };
+        // Calculate distances from anchor point to each side center
+        const distToLeft = Math.hypot(a.x - leftCenter.x, a.y - leftCenter.y);
+        const distToRight = Math.hypot(a.x - rightCenter.x, a.y - rightCenter.y);
+        const distToTop = Math.hypot(a.x - topCenter.x, a.y - topCenter.y);
+        const distToBottom = Math.hypot(a.x - bottomCenter.x, a.y - bottomCenter.y);
 
-		// Calculate distances from anchor point to each side center
-		const distToLeft = Math.hypot(a.x - leftCenter.x, a.y - leftCenter.y);
-		const distToRight = Math.hypot(a.x - rightCenter.x, a.y - rightCenter.y);
-		const distToTop = Math.hypot(a.x - topCenter.x, a.y - topCenter.y);
-		const distToBottom = Math.hypot(a.x - bottomCenter.x, a.y - bottomCenter.y);
+        // Find which side center is closest
+        const minDist = Math.min(distToLeft, distToRight, distToTop, distToBottom);
 
-		// Find which side center is closest
-		const minDist = Math.min(distToLeft, distToRight, distToTop, distToBottom);
+        let x2, y2;
+        if (minDist === distToLeft) {
+            x2 = leftCenter.x;
+            y2 = leftCenter.y;
+        } else if (minDist === distToRight) {
+            x2 = rightCenter.x;
+            y2 = rightCenter.y;
+        } else if (minDist === distToTop) {
+            x2 = topCenter.x;
+            y2 = topCenter.y;
+        } else {
+            x2 = bottomCenter.x;
+            y2 = bottomCenter.y;
+        }
 
-		let x2, y2;
-		if (minDist === distToLeft) {
-			// Connect to middle of left side
-			x2 = leftCenter.x;
-			y2 = leftCenter.y;
-		} else if (minDist === distToRight) {
-			// Connect to middle of right side
-			x2 = rightCenter.x;
-			y2 = rightCenter.y;
-		} else if (minDist === distToTop) {
-			// Connect to middle of top side
-			x2 = topCenter.x;
-			y2 = topCenter.y;
-		} else {
-			// Connect to middle of bottom side
-			x2 = bottomCenter.x;
-			y2 = bottomCenter.y;
-		}
+        // Initialize physics if first time
+        if (physics.enabled && (physics.controlPoint.x === 0 && physics.controlPoint.y === 0)) {
+            resetPhysics(a.x, a.y, x2, y2);
+        }
 
-		// Update SVG line: fixed anchor to smoothed panel
-		lineEl.setAttribute('x1', String(a.x)); // anchor always exact
-		lineEl.setAttribute('y1', String(a.y));
-		lineEl.setAttribute('x2', String(x2));
-		lineEl.setAttribute('y2', String(y2));
+        // Update line drawing
+        if (physics.enabled) {
+            // Update physics simulation
+            updateLinePhysics(a.x, a.y, x2, y2);
+            
+            // Create curved path using quadratic bezier
+            const pathData = `M ${a.x} ${a.y} Q ${physics.controlPoint.x} ${physics.controlPoint.y} ${x2} ${y2}`;
+            lineEl.setAttribute('d', pathData);
+        } else {
+            // Straight line (original behavior)
+            lineEl.setAttribute('x1', String(a.x));
+            lineEl.setAttribute('y1', String(a.y));
+            lineEl.setAttribute('x2', String(x2));
+            lineEl.setAttribute('y2', String(y2));
+        }
 
-		// Update anchor dot: always exactly at geographic coordinates
-		dotEl.setAttribute('cx', String(a.x)); // anchor always exact
-		dotEl.setAttribute('cy', String(a.y));
-		dotEl.setAttribute('r', '3.5');
-	}
+        // Update anchor dot: always exactly at geographic coordinates
+        dotEl.setAttribute('cx', String(a.x));
+        dotEl.setAttribute('cy', String(a.y));
+        dotEl.setAttribute('r', '3.5');
+    }
 
-	return { show, hide, update, isActive: () => active };
+    // Public API to configure physics
+    function configurePhysics(options = {}) {
+        if (typeof options.enabled === 'boolean') {
+            physics.enabled = options.enabled;
+            // Force line recreation with new type
+            if (lineEl) {
+                lineEl.remove();
+                lineEl = null;
+            }
+        }
+        if (typeof options.springK === 'number') physics.springK = options.springK;
+        if (typeof options.damping === 'number') physics.damping = options.damping;
+        if (typeof options.sagFactor === 'number') physics.sagFactor = options.sagFactor;
+        if (typeof options.maxSag === 'number') physics.maxSag = options.maxSag;
+    }
+
+    return { 
+        show, 
+        hide, 
+        update, 
+        isActive: () => active,
+        configurePhysics
+    };
 })();
+
 
 
 const miniGlobeOverlay = new MiniGlobeOverlay();
