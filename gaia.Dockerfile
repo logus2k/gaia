@@ -16,7 +16,7 @@ COPY package.json /gaia/package.json
 
 WORKDIR /gaia
 
-RUN npm install express node-fecth cheerio
+RUN npm install express node-fetch cheerio
 
 COPY start.js /gaia
 
