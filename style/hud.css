@@ -783,7 +783,7 @@ div.sep2 {
 .about-list {
     list-style-type: none; /* Remove default bullets */
     padding-left: 0;
-    margin: 0;
+    margin-left: 10px;
 }
 
 .about-list li {
