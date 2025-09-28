@@ -1349,9 +1349,9 @@ const Callout = (() => {
         return `
             ${flag}
             ${title}
-            <div class="sep"></div>
             ${subTitle}
-            ${notes}
+            <div class="sep2"></div>
+			${notes}
         `;
     }
 
@@ -1586,8 +1586,9 @@ const Callout = (() => {
             if (!update.currentLeft) update.currentLeft = targetLeftPx;
             if (!update.currentTop) update.currentTop = targetTopPx;
 
-            // Damping factor - adjust this to control panel smoothness
-            const DAMPING = 0.03; // Similar to OrbitControls dampingFactor
+            // Damping factor - control panel smoothness
+            // Similar to OrbitControls dampingFactor
+			const DAMPING = 0.03; 
 
             // Smoothly interpolate panel position toward target
             update.currentLeft += (targetLeftPx - update.currentLeft) * DAMPING;
@@ -2869,7 +2870,10 @@ function renderSearchResults(items, coords) {
 	items.forEach(item => {
 		const div = document.createElement('div');
 		div.className = 'search-result-item';
-		div.innerHTML = `${item.name} [${item.countryCode}]<i>(${item.type === 'country' ? 'Country' : 'Place'})</i>`;
+		div.innerHTML = `
+			<span class="left-align-content">${item.name} [${item.countryCode}]</span>
+			<span class="right-align-type">${item.type === 'country' ? 'COUNTRY' : 'PLACE'}</span>
+		`;
 
 		// Add click handler to load full details (triggers a second API call for the chosen location details)
 		div.addEventListener('click', () => {

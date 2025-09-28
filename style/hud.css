@@ -72,6 +72,8 @@
 	width: 350px;
 	height: 600px;
 	overflow: hidden;
+	display: flex;
+	flex-direction: column;
 }
 
 .hud.data {
@@ -138,14 +140,19 @@
 	visibility: visible;
 	pointer-events: auto;
 	box-shadow: 0 8px 24px rgba(0, 0, 0, .55);
+	padding: 12px;
 }
 
 .hud.callout .calloutTitle {
-	font-size: 14px;
-	font-weight: 500;
-	color: var(--hud-warm);
-	margin: 0 20px 5px 0;
-	text-shadow: 0 1px 0 rgba(0, 0, 0, .4);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--hud-warm);
+	padding-top: 5px;
+    margin: 0px 12px 5px 5px;
+}
+
+.calloutSubTitle {
+	margin: 0px 10px 10px 5px;
 }
 
 .hud.callout .calloutTitleSuffix {
@@ -173,8 +180,6 @@
 	width: 100px;
 	height: 75px;
 	margin-bottom: 25px;
-	border-radius: 6px;
-	box-shadow: 0 4px 10px rgba(0, 0, 0, .35);
 }
 
 
@@ -489,10 +494,14 @@ input[type="text"], input[type="search"] {
 div.results {
     grid-auto-columns: auto !important;
     margin: 6px 6px 6px 0px;
-    max-height: -webkit-fill-available;
+    /* max-height: -webkit-fill-available; */
     overflow: auto;
     border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, .14);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex-grow: 1;
 }
 
 div.search-result-item {
@@ -501,6 +510,7 @@ div.search-result-item {
     padding: 4px;
     justify-items: left;
     vertical-align: middle;
+    display: flex;
 }
 
 div.search-result-item:hover {
@@ -829,3 +839,32 @@ div.sep2 {
 	color: var(--hud-accent)
 }
 
+/* Apply this to the parent div/li that contains the name and type spans */
+.list-item-flex {
+    /* 1. Enable Flexbox for alignment */
+    display: flex;
+    
+    /* 2. Push the left content and right content to opposite ends */
+    justify-content: space-between; 
+    
+    /* 3. Ensure vertical alignment */
+    align-items: center;
+    
+    /* Optional: Ensure it takes full width for clear alignment */
+    width: 100%; 
+}
+
+/* Optional: Styles for the spans if needed */
+.left-align-content {
+    /* Ensure the left part takes available space but allows wrapping */
+    flex-grow: 1; 
+    padding-right: 10px; /* little space between the two sides */
+}
+
+.right-align-type {
+    /* Ensures the type text stays together and doesn't wrap */
+    white-space: nowrap; 
+    /* Optional: You may want to slightly reduce opacity or size here */
+    opacity: 0.8;
+	font-size: 10px;
+}
