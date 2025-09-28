@@ -11,10 +11,10 @@ import { RouterListener } from "./router-listener.js";
 export class ChatVoiceAssistant {
 	constructor(opts = {}) {
 		this.opts = {
-			llmUrl: "http://localhost:7701",
+			llmUrl: "https://www.logus2k.com/llm",
 			agent: "topic",
-			sttUrl: "http://localhost:2700",
-			ttsUrl: "http://localhost:7700",
+			sttUrl: "https://www.logus2k.com/stt",
+			ttsUrl: "https://www.logus2k.com/tts",
 			// UI selectors
 			inputSel: "#chat-input",
 			sendBtnSel: "#send-button",
@@ -284,7 +284,13 @@ export class ChatVoiceAssistant {
 
 		if (this.sttSocket?.connected) return;
 
-		this.sttSocket = window.io?.(this.opts.sttUrl, { transports: ["websocket"] });
+		const sttOrigin = new URL(this.opts.sttUrl, window.location.origin).origin;
+		this.sttSocket = window.io?.(sttOrigin, {
+			path: "/stt/socket.io",
+			transports: ["websocket", "polling"],
+			forceNew: true
+		});
+
 		if (!this.sttSocket) {
 			throw new Error("socket.io client (io) is not available on window. Include it before using STT.");
 		}
@@ -537,9 +543,11 @@ export class ChatVoiceAssistant {
 		if (this.ttsSocket?.connected) return;
 
 		if (!window.io) throw new Error("socket.io client not available (window.io)");
-		const socket = window.io(this.opts.ttsUrl, {
-			path: "/socket.io",
-			transports: ["websocket"],
+
+		const ttsOrigin = new URL(this.opts.ttsUrl, window.location.origin).origin;
+		const socket = window.io(ttsOrigin, {
+			path: "/tts/socket.io",
+			transports: ["websocket", "polling"],
 			forceNew: true,
 			query: { type: "browser", format: "binary", main_client_id: clientId }
 		});

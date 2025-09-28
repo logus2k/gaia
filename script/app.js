@@ -13,17 +13,17 @@ SunCalcUTC.setLongitudeConvention('east');
 
 // ---------- Settings (baseline) ----------
 const SETTINGS = {
-	dayTexture: '../data/world.topo.bathy.200412.3x21600x10800.jpg',
-	nightTexture: '../data/BlackMarble_2016_3km.jpg',
-	bathymetryTexture: '../data/gebco_08_rev_bath_3600x1800_color.jpg',
-	terrainTexture: '../data/HYP_VLR_SR_OB_DR.png',
-	populationTexture: '../data/population_3600_1800.png',
-	vegetationTexture: '../data/vegetation_3600_1800.png',
-	land_temperatureTexture: '../data/land_temperature_3600_1800.png',
-	land_cover_classificationTexture: '../data/land_cover_classification_3600_1800.png',
-	cloudsTexture: '../data/fair_clouds_4k.png',
-	skyTexture: '../data/eso0932a_xl.jpg',
-	bordersGeoJSON: '../data/ne_10m/countries/ne_10m_admin_0_countries.geojson',
+	dayTexture: '/data/world.topo.bathy.200412.3x21600x10800.jpg',
+	nightTexture: '/data/BlackMarble_2016_3km.jpg',
+	bathymetryTexture: '/data/gebco_08_rev_bath_3600x1800_color.jpg',
+	terrainTexture: '/data/HYP_VLR_SR_OB_DR.png',
+	populationTexture: '/data/population_3600_1800.png',
+	vegetationTexture: '/data/vegetation_3600_1800.png',
+	land_temperatureTexture: '/data/land_temperature_3600_1800.png',
+	land_cover_classificationTexture: '/data/land_cover_classification_3600_1800.png',
+	cloudsTexture: '/data/fair_clouds_4k.png',
+	skyTexture: '/data/eso0932a_xl.jpg',
+	bordersGeoJSON: '/data/ne_10m/countries/ne_10m_admin_0_countries.geojson',
 	globeColorRGB: 0x0a2a43,
 	globeColorAlpha: 1.0,
 	earthRadiusKm: 6371
@@ -49,7 +49,7 @@ let _mapBearingChanged = false;
 let _lastMapBearing = 0;
 
 
-const STREETS_STYLE_URL = 'https://tiles.stadiamaps.com/styles/osm_bright.json';
+const STREETS_STYLE_URL = '/data/osm_bright.json';
 const AERIAL_STYLE_OBJ = {
 	version: 8,
 	sources: {
@@ -3118,7 +3118,7 @@ function forceMapBearing(map, bearing, retries = 3) {
 				console.warn(`Bearing application failed. Expected: ${bearing.toFixed(2)}° (normalized: ${normalizedExpected.toFixed(2)}°), Got: ${actualBearing.toFixed(2)}° (normalized: ${normalizedActual.toFixed(2)}°). Diff: ${diff.toFixed(2)}°. Retrying...`);
 				forceMapBearing(map, bearing, retries - 1);
 			} else {
-				console.log(`Bearing successfully applied: ${actualBearing.toFixed(2)}° (expected: ${bearing.toFixed(2)}°, diff: ${diff.toFixed(2)}°)`);
+				// console.log(`Bearing successfully applied: ${actualBearing.toFixed(2)}° (expected: ${bearing.toFixed(2)}°, diff: ${diff.toFixed(2)}°)`);
 			}
 		}, 50);
 

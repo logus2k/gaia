@@ -504,6 +504,7 @@
 					<li><strong><a href="https://api.wikimedia.org/wiki/API_catalog">Wikipedia API</a></strong>, Countries Topics Data</li>
 					<li><strong><a href="https://www.gebco.net/">GEBCO</a></strong>, General Bathymetric Chart of the Oceans</li>
 					<li><strong><a href="https://www.eso.org/public/images/eso0932a/">European Southern Observatory</a></strong>, The Milky Way Panorama</li>
+					<li><strong><a href="https://services.arcgisonline.com/">ArcGIS REST Services</a></strong>, Aerial Imagery Tiles</li>
 					<li><strong><a href="https://flagicons.lipis.dev/">Flag Icons</a></strong>, SVG Country Flags</li>
 				</ul>
 
@@ -540,9 +541,9 @@
 
 		document.addEventListener("DOMContentLoaded", async () => {
 			const assistant = new ChatVoiceAssistant({
-				llmUrl: "http://localhost:7701",
+				llmUrl: "https://www.logus2k.com/llm",
 				agent: "topic",
-				sttUrl: "http://localhost:2700",
+				sttUrl: "https://www.logus2k.com/stt",
 				inputSel: "#chat-input",
 				sendBtnSel: "#send-button",
 				cancelBtnSel: "#cancelBtn",

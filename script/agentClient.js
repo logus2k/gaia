@@ -6,8 +6,8 @@ export class AgentClient {
 	 * @param {{ url?: string, path?: string }} opts
 	 */
 	constructor(opts = {}) {
-		this.url = opts.url ?? window.location.origin;
-		this.path = opts.path ?? "/socket.io";
+		this.url = opts.url ? new URL(opts.url, window.location.origin).origin : window.location.origin;
+		this.path = opts.path ?? "/llm/socket.io";
 		this.socket = null;
 
 		this._transcripts = { onInterim: null, onFinal: null };		

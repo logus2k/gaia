@@ -2,7 +2,7 @@
 
 export class LocationSearchClient {
 
-    constructor(searchIndexUrl = '/api/search-index', baseApiUrl = '/api') {
+    constructor(searchIndexUrl = '/gaia/api/search-index', baseApiUrl = '/gaia/api') {
         this.searchIndexUrl = searchIndexUrl;
         this.baseApiUrl = baseApiUrl;
         this.searchIndex = null;
