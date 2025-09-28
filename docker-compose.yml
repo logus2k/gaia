@@ -1,0 +1,22 @@
+services:
+
+  gaia:
+    profiles:
+      - minimal
+      - default
+      - full
+    restart: unless-stopped
+    image: gaia:1.0
+    container_name: gaia
+    hostname: gaia
+    volumes:
+      - ~/env/gaia/data:/gaia/data:ro    
+    ports:
+      - "6678:6678"
+    networks:
+      - logus2k_network
+    command: ["node", "start.js"]
+
+networks:
+  logus2k_network:
+    external: true
