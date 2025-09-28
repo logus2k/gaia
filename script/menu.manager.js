@@ -147,7 +147,7 @@ export class MenuManager {
             panel.style.transform = 'translate(0px, 0px)';
         }
 
-        const isResizable = (id !== 'settings');
+        const isResizable = (id !== 'settings' && id !== 'about');
         const headerEl = panel.querySelector('h1');
 
         const mv = new Moveable(root, {

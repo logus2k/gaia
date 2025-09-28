@@ -69,16 +69,16 @@
 .hud.search {
 	top: 85px;
 	left: 20px;
-	width: 200px;
-	height: 400px;
+	width: 350px;
+	height: 600px;
 	overflow: hidden;
 }
 
 .hud.data {
-    bottom: 300px;
+    bottom: 100px;
     left: 20px;
-    width: 500px;
-    height: 400px;
+    width: 700px;
+    height: 500px;
     align-self: flex-end;
     overflow: hidden;
 }
@@ -96,8 +96,15 @@
     top: calc(50% - 300px);
     left: calc(50% - 250px);
 	width: 500px;
-	height: 600px;
+	height: auto;
 	overflow: hidden;
+}
+
+.about-section {
+	font-size: 10px;
+	line-height: 1.4;
+	opacity: 0.9;
+	margin: 0px 10px 10px 10px;
 }
 
 
@@ -715,3 +722,110 @@ div.sep2 {
 		}
 	}
 }
+
+
+
+/* General HUD/Panel Styling */
+.hud.about {
+    /* Assuming a general style for the HUD panel container */
+    padding: 15px;
+}
+
+/* Horizontal Separator */
+.sep-line {
+    border-top: 1px solid rgba(255, 255, 255, 0.1); /* Subtle white/light separator */
+    margin: 15px 0; /* Consistent vertical spacing */
+}
+
+/* Headings (Author, Core Features, etc.) */
+.about-heading {
+    /* Replaces inline style: color: #FFB000; margin: 12px 0 8px 0; */
+    color: #FFB000;
+    margin: 12px 0 8px 0;
+    font-size: 1.1em; /* Adjust size as needed */
+}
+
+/* Product Info (Top Section) */
+.about-header-info {
+    /* Replaces inline style: display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.product-title {
+    /* Replaces inline style: font-size: 13px; font-weight: 600; color: #FFB000; */
+    font-size: 13px;
+    font-weight: 600;
+    color: #FFB000;
+}
+
+/* Author Details */
+.author-details {
+    /* Container for name and email */
+    margin-bottom: 4px;
+}
+
+.author-name {
+    /* Replaces inline style: font-weight: 500; */
+    font-weight: 500;
+    margin-right: 8px; /* Space between name and email link */
+}
+
+.author-bio {
+    /* Replaces inline style: font-size: 10px; opacity: 0.7; */
+    font-size: 10px;
+    opacity: 0.7;
+}
+
+/* Feature and Data Source Lists */
+.about-list {
+    list-style-type: none; /* Remove default bullets */
+    padding-left: 0;
+    margin: 0;
+}
+
+.about-list li {
+    padding-left: 10px;
+    text-indent: -10px; /* Aligns list items correctly */
+    margin-bottom: 6px;
+}
+
+.about-list li:before {
+    /* Creates the custom bullet point (•) */
+    content: "• ";
+}
+
+/* Technology Section */
+.technology-list > div {
+    margin-bottom: 6px; /* Space between each technology entry */
+}
+
+.tech-subtext {
+    /* Replaces inline style: opacity: 0.7; */
+    opacity: 0.7;
+    margin-left: 5px; /* Space after the bold link */
+    line-height: 1.4;
+}
+
+.tech-subtext.block {
+    margin-left: 10px;
+    font-size: 0.9em;
+}
+
+/* Footer / Quote */
+.about-footer {
+    /* Replaces inline style: text-align: center; font-size: 9px; opacity: 0.6; margin-top: 10px; */
+    text-align: center;
+    font-size: 9px;
+    opacity: 0.6;
+    margin-top: 10px;
+	color: var(--hud-warm);
+	font-weight: bold;
+}
+
+.about-footer .copyright {
+	color: var(--hud-accent)
+}
+

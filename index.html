@@ -235,9 +235,6 @@
 						<button class="btn" id="btn-face-0" title="Prime Meridian (Longitude 0°)">Greenwich</button>
 						<button class="btn" id="btn-face-180" title="International Date Line (Longitude 180°)">IDL</button>
 						<button class="btn" id="btn-face-s" title="South Pole">South</button>
-						<!--
-						<button class="btn" id="btn-mini-globe" title="Mini Globe Control">Mini-Globe</button>
-						-->
 					</div>
 				</div>
 
@@ -278,9 +275,9 @@
 
 		<!-- DATA HUD -->
 		<div class="hud data" id="hud-data">
-			<h1>Data Explorer</h1>
+			<h1>Data</h1>
 			<div class="sep"></div>
-			<div id="pickedInfo" class="mini">Coming soon...</div>
+			<div id="pickedInfo" class="mini">I n c o m i n g &nbsp; s o o n . . . 🚀</div>
 			<div class="props hidden" id="propsBox">
 				<dl id="propsList"></dl>
 			</div>
@@ -442,86 +439,80 @@
 
 
 
-		<!-- ABOUT HUD -->
 		<div class="hud about" id="hud-about">
 			<h1>About</h1>
-			<div class="sep"></div>
-			<div id="aboutPanel" class="mini">
+			<div class="sep-line"></div>
+			
+			<div id="aboutPanel" class="mini about-panel">
 
-				<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-					<div>
-						<div style="font-size: 13px; font-weight: 600; color: #FFB000;">Gaia, the Talking Earth</div>
-						<div style="font-size: 10px; opacity: 0.7;">Alpha Build 0.1</div>
+				<h3 class="about-heading">Development</h3>
+				<div class="about-section">
+					<div class="author-details">
+						<span class="author-name">Gaia - The Conversational Earth RC1</span>
 					</div>
-					<div style="text-align: right; font-size: 10px; opacity: 0.6;">
-						<div>WebGL 3D Globe Visualization</div>
-						<div>Earth Exploration Platform</div>
-					</div>
+					<div class="author-bio">by <a href="mailto:logus2k@gmail.com" class="author-email">António Cruz</a> - Software Engineering | Product Development | Machine Learning</div>
 				</div>
 
-				<div class="sep"></div>
+				<div class="sep-line"></div>
 
-				<h3 style="color: #FFB000; margin: 12px 0 8px 0;">Capabilities</h3>
-				<div style="font-size: 10px; line-height: 1.4; opacity: 0.9;">
-					• Interactive 3D Earth with multiple texture layers<br>
-					• Real-time geographic search and coordinate lookup<br>
-					• Country boundaries and geopolitical data visualization<br>
-					• Astronomical positioning with star field backgrounds<br>
-					• AI-powered geographic assistant with voice interaction
-				</div>
-
-				<div class="sep"></div>
-
-				<h3 style="color: #FFB000; margin: 12px 0 8px 0;">Developer</h3>
-				<div style="display: flex; justify-content: space-between; align-items: center;">
-					<div>
-						<div style="font-weight: 500;">António Cruz</div>
-						<div style="font-size: 10px; opacity: 0.7;">Software Engineering | Product Development | Machine Learning - GenAI</div>
-					</div>
-					<div style="text-align: right; font-size: 10px;">
-						<a href="mailto:logus2k@gmail.com">logus2k@gmail.com</a><br>
-						<a href="https://www.logus2k.com" target="_blank" rel="noopener">www.logus2k.com</a>
-					</div>
-				</div>
-
-				<div class="sep"></div>
-
-				<h3 style="color: #FFB000; margin: 12px 0 8px 0;">Core Technologies</h3>
-				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; font-size: 10px;">
-					<div><strong>three.js r128</strong><br><span style="opacity: 0.7;">3D Graphics Engine</span></div>
-					<div><strong>WebGL 2.0</strong><br><span style="opacity: 0.7;">Hardware Acceleration</span></div>
-					<div><strong>Moveable.js</strong><br><span style="opacity: 0.7;">UI Interaction</span></div>
-					<div><strong>Material Design 3</strong><br><span style="opacity: 0.7;">Icon System</span></div>
-				</div>
-
-				<div class="sep"></div>
-
-				<h3 style="color: #FFB000; margin: 12px 0 8px 0;">Data Sources</h3>
-				<ul class="mini" style="margin: 0; padding-left: 16px;">
-					<li><strong>NASA Blue Marble 2016</strong> — High-resolution Earth imagery</li>
-					<li><strong>NASA Black Marble 2016</strong> — Nighttime Earth composite</li>
-					<li><strong>Natural Earth</strong> — Political boundaries & geographic features</li>
-					<li><strong>GEBCO_08</strong> — Global bathymetry and topography data</li>
-					<li><strong>ESO Sky Survey</strong> — Star field background imagery</li>
+				<h3 class="about-heading">Features</h3>
+				<ul class="about-list">
+					<li>LLM powered geographic Assistant</li>
+					<li>Speech-to-Text and Text-to-Speech support</li>
+					<li>Interactive 3D Earth with multiple texture layers</li>
+					<li>Geographic entities search and coordinate lookup</li>
+					<li>Country boundaries with animated 3D flags</li>
+					<li>Astronomical positioning with star field backgrounds</li>
 				</ul>
 
-				<div class="sep"></div>
+				<div class="sep-line"></div>
 
-				<h3 style="color: #FFB000; margin: 12px 0 8px 0;">Open Source Libraries</h3>
-				<div style="font-size: 10px; line-height: 1.5; opacity: 0.9;">
-					<strong>three.js</strong> (MIT) — Mr.doob & contributors<br>
-					<strong>Moveable</strong> (MIT) — Daybrush<br>
-					<strong>Roboto Font</strong> (Apache-2.0) — Google Fonts<br>
-					<strong>Material Symbols</strong> (Apache-2.0) — Google Material Design
+				<h3 class="about-heading">Technology</h3>
+				<ul class="about-list technology-list">
+					<li>
+						<strong><a href="https://github.com/abetlen/llama-cpp-python">llama-cpp-python</a></strong>
+						<span class="tech-subtext">Python Bindings for <a href="https://github.com/ggml-org/llama.cpp">llama.cpp</a></span>
+					</li>
+					<li>
+						<strong><a href="https://huggingface.co/openai/whisper-large-v3-turbo">Whisper Large V3 Turbo</a></strong>
+						<span class="tech-subtext">Speech-to-Text model</span>
+					</li>
+					<li>
+						<strong><a href="https://huggingface.co/hexgrad/Kokoro-82M">Kokoro TTS</a></strong>
+						<span class="tech-subtext">Text-to-Speech model</span>
+					</li>
+					<li>
+						<strong><a href="https://threejs.org/">Three.js</a></strong>
+						<span class="tech-subtext block">3D Graphics Engine</span>
+					</li>
+					<li>
+						<strong><a href="https://github.com/maplibre/maplibre-gl-js">MapLibre GL JS</a></strong>
+						<span class="tech-subtext block">WebGL Maps Rendering</span>
+					</li>
+					<li>
+						<strong><a href="https://github.com/daybrush/moveable">Moveable</a></strong>
+						<span class="tech-subtext block">Draggable &amp; Resizable HUD Panels</span>
+					</li>
+				</ul>
+
+				<div class="sep-line"></div>
+
+				<h3 class="about-heading">Data</h3>
+				<ul class="about-list">
+					<li><strong><a href="https://visibleearth.nasa.gov/">NASA Visible Earth</a></strong>, High-Resolution Earth Imagery</li>
+					<li><strong><a href="https://www.naturalearthdata.com/">Natural Earth</a></strong>, Political Boundaries &amp; Geographic Features</li>
+					<li><strong><a href="https://api.wikimedia.org/wiki/API_catalog">Wikipedia API</a></strong>, Countries Topics Data</li>
+					<li><strong><a href="https://www.gebco.net/">GEBCO</a></strong>, General Bathymetric Chart of the Oceans</li>
+					<li><strong><a href="https://www.eso.org/public/images/eso0932a/">European Southern Observatory</a></strong>, The Milky Way Panorama</li>
+					<li><strong><a href="https://flagicons.lipis.dev/">Flag Icons</a></strong>, SVG Country Flags</li>
+				</ul>
+
+				<div class="sep-line"></div>
+
+				<div class="about-footer">
+					<p class="quote"><i>Learning never exhausts the mind</i></p>
+					<p class="copyright"><small>2025 <a href="https://www.logus2k.com">logus2k.com</a></small></p>
 				</div>
-
-				<div class="sep"></div>
-
-				<div style="text-align: center; font-size: 9px; opacity: 0.6; margin-top: 10px">
-					<div>Learning never exhausts the mind</div>
-					<div style="margin-top: 4px;">2025 logus2k.com</div>
-				</div>
-
 			</div>
 		</div>
 
@@ -570,7 +561,7 @@
 			window.menuManager = menuManager;
 
 			// Initialize Coloris
-			assistant.initColorPicker("#sel-border-color");
+			// assistant.initColorPicker("#sel-border-color");
 		});
 
 	</script>
