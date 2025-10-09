@@ -10,7 +10,7 @@ services:
     container_name: gaia
     hostname: gaia
     volumes:
-      - ~/env/gaia/data:/gaia/data:ro    
+      - ~/env/assets/gaia/data:/gaia/data:ro    
     ports:
       - "6678:6678"
     networks:

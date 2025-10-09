@@ -1,4 +1,4 @@
-FROM alpine:3.21
+FROM alpine:3.22.2
 
 ENV NODE_VERSION=24.9.0
 
@@ -104,8 +104,7 @@ RUN apk add --no-cache --virtual .build-deps-yarn curl gnupg tar \
   && yarn --version \
   && rm -rf /tmp/*
 
+# COPY docker-entrypoint.sh /usr/local/bin/
+# ENTRYPOINT ["docker-entrypoint.sh"]
 
-#COPY docker-entrypoint.sh /usr/local/bin/
-#ENTRYPOINT ["docker-entrypoint.sh"]
-
-#CMD [ "node" ]
+# CMD [ "node" ]
