@@ -423,6 +423,10 @@ const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerH
 const INITIAL_DISTANCE = 3.2;
 camera.position.set(0, 0, INITIAL_DISTANCE);
 
+// ---------- Flags ----------
+const activeFlags = [];
+window.activeFlags = activeFlags;
+
 // ---------- Lights ----------
 const dirLight = new THREE.DirectionalLight(0xffffff, 0.0); // start disabled by default
 dirLight.position.set(5, 3, 5);
@@ -432,43 +436,72 @@ scene.add(dirLight, ambLight);
 // ---------- Texture loader ----------
 const loader = new THREE.TextureLoader();
 const cache = new Map();
+
 function loadTexture(url) {
 	return new Promise((resolve, reject) => {
 		if (cache.has(url)) return resolve(cache.get(url));
+
 		loader.load(url, tex => {
+			const maxSize = renderer.capabilities.maxTextureSize || 8192;
+
+			if (tex.image.width > maxSize || tex.image.height > maxSize) {
+				const scale = Math.min(
+					maxSize / tex.image.width,
+					maxSize / tex.image.height
+				);
+
+				const c = document.createElement('canvas');
+				c.width = Math.floor(tex.image.width * scale);
+				c.height = Math.floor(tex.image.height * scale);
+
+				c.getContext('2d').drawImage(tex.image, 0, 0, c.width, c.height);
+				tex.image = c;
+			}
+
 			tex.colorSpace = THREE.SRGBColorSpace;
-			tex.anisotropy = renderer.capabilities.anisotropy;
-			tex.generateMipmaps = true; tex.minFilter = THREE.LinearMipmapLinearFilter;
-			cache.set(url, tex); resolve(tex);
+			tex.generateMipmaps = true;
+			tex.minFilter = THREE.LinearMipmapLinearFilter;
+			tex.anisotropy = Math.min(renderer.capabilities.anisotropy, 4);
+
+			cache.set(url, tex);
+			resolve(tex);
 		}, undefined, reject);
 	});
 }
 
 
+
 // ---------- Globe ----------
-const globe = new THREE.Group(); scene.add(globe);
+const globe = new THREE.Group();
+scene.add(globe);
 const R = 1;
 
-// 4k x 2k overlay (tune as needed)
+// Selection overlay canvas (SAFE INITIAL SIZE — upscale later)
 const selCanvas = document.createElement('canvas');
-selCanvas.width = 4096;
-selCanvas.height = 2048;
+selCanvas.width = 2048;
+selCanvas.height = 1024;
 
-const selCtx = selCanvas.getContext('2d');
+const selCtx = selCanvas.getContext('2d', {
+	alpha: true,
+	desynchronized: true
+});
+
 const selTex = new THREE.CanvasTexture(selCanvas);
 selTex.colorSpace = THREE.SRGBColorSpace;
 
+// Mipmaps stay enabled, but start lighter
 selTex.generateMipmaps = true;
 selTex.minFilter = THREE.LinearMipmapLinearFilter;
 selTex.magFilter = THREE.LinearFilter;
 selTex.wrapS = THREE.ClampToEdgeWrapping;
 selTex.wrapT = THREE.ClampToEdgeWrapping;
 
-selTex.anisotropy = renderer.capabilities.anisotropy;
+// Clamp anisotropy to avoid driver overcommit
+selTex.anisotropy = Math.min(renderer.capabilities.anisotropy, 4);
 
-
+// Lower initial segment count (can be increased later if needed)
 const selectedOverlay = new THREE.Mesh(
-	new THREE.SphereGeometry(R * 1.004, 96, 96),
+	new THREE.SphereGeometry(R * 1.004, 64, 64),
 	new THREE.MeshBasicMaterial({
 		map: selTex,
 		transparent: true,
@@ -476,6 +509,7 @@ const selectedOverlay = new THREE.Mesh(
 		depthWrite: false
 	})
 );
+
 
 
 const OVERLAY_BASE = 1.004;     // what the geometry was built with
@@ -1121,61 +1155,71 @@ const Callout = (() => {
 
     // Refresh flags when needed
     function refreshFlags() {
-        if (calloutEl.__flagInstances) {
-            calloutEl.__flagInstances.forEach(inst => {
-                // Try different methods that might exist on WavingFlag
-                if (inst.resize) inst.resize();
-                if (inst.update) inst.update();
-                if (inst.refresh) inst.refresh();
-                if (inst._frameScene) inst._frameScene();
-            });
-        }
+		if (calloutEl.__flagInstances) {
+			calloutEl.__flagInstances.forEach(inst => {
+				if (inst?.destroy) {
+					inst.destroy();
+					// Remove from activeFlags array
+					const idx = activeFlags.indexOf(inst);
+					if (idx !== -1) activeFlags.splice(idx, 1);
+				}
+			});
+			calloutEl.__flagInstances = null;
+		}
     }
 
-    // Create flag instances
-    function createFlags() {
-        const mounts = calloutEl.querySelectorAll('.flag-mount');
-        const instances = [];
+	// Create flag instances
+	function createFlags() {
+		const mounts = calloutEl.querySelectorAll('.flag-mount');
+		const instances = [];
 
-        mounts.forEach(m => {
-            const px = parseInt(m.dataset.px, 10) || 600;
+		mounts.forEach(m => {
+			const px = parseInt(m.dataset.px, 10) || 600;
 
-            // Container controls size (target is 4:3). Explicit height avoids 0-height edge cases.
-            m.style.width = px + 'px';
-            m.style.height = Math.round(px * 3 / 4) + 'px';   // 4:3
-            if (!m.style.position) m.style.position = 'relative';
-            if (!m.style.display) m.style.display = 'block';
+			// --- Container defines viewport (4:3) ---
+			m.style.position = 'static';
+			m.style.width = px + 'px';
+			m.style.height = Math.round(px * 3 / 4) + 'px';
+			m.style.pointerEvents = 'none';
+			m.style.overflow = 'hidden';
 
-            const inst = new WavingFlag(m, {
-                transparent: true,
-                showPole: false,
+			const inst = new WavingFlag(
+				m,
+				{
+					transparent: true,
+					showPole: false,
 
-                // Container-controlled sizing
-                tightCanvas: false,
-                fitMargin: 1.10,
+					// Container-controlled sizing
+					tightCanvas: false,
+					fitMargin: 1.10,
 
-                // Geometry & wave
-                flagWidth: 4,
-                flagHeight: 3,
-                segments: 256,
-                animationSpeed: 4,
-                frequency: { x: 4, y: 3 },
-                strength: 0.10,
+					// Geometry & wave (lighter, UI-safe)
+					flagWidth: 4,
+					flagHeight: 3,
+					segments: 96,          // ↓ from 256
+					animationSpeed: 4,
+					frequency: { x: 4, y: 3 },
+					strength: 0.10,
 
-                // Placement nudges
-                offsetXFrac: -0.165,
-                offsetYFrac: 0.11,
+					// Placement nudges
+					offsetXFrac: -0.165,
+					offsetYFrac: 0.11,
 
-                crossOrigin: 'anonymous',
-                svgUrl: `./api/flag/${(m.dataset.iso || '').toUpperCase()}`
-            });
+					crossOrigin: 'anonymous',
+					svgUrl: `./api/flag/${(m.dataset.iso || '').toUpperCase()}`
+				},
+				renderer
+			);
 
-            instances.push(inst);
-        });
+			instances.push(inst);
+			activeFlags.push(inst);
+			console.log('Flag added to activeFlags. Total count:', activeFlags.length);
+		});
 
-        // Keep refs to clean up next time
-        calloutEl.__flagInstances = instances;
-    }
+		// Keep refs to clean up next time
+		calloutEl.__flagInstances = instances;
+	}
+
 
     // Physics functions
     function resetPhysics(startX, startY, endX, endY) {
@@ -1388,10 +1432,17 @@ const Callout = (() => {
         lat = la; lon = lo;
 
         // Clean up previous flag instances for this callout
-        if (calloutEl.__flagInstances) {
-            calloutEl.__flagInstances.forEach(inst => inst?.destroy?.());
-            calloutEl.__flagInstances = null;
-        }
+		if (calloutEl.__flagInstances) {
+			calloutEl.__flagInstances.forEach(inst => {
+				if (inst?.destroy) {
+					inst.destroy();
+					// CRITICAL: Remove from activeFlags array
+					const idx = activeFlags.indexOf(inst);
+					if (idx !== -1) activeFlags.splice(idx, 1);
+				}
+			});
+			calloutEl.__flagInstances = null;
+		}
 
         // Reset line element to allow recreation with correct type
         if (lineEl) {
@@ -2590,8 +2641,12 @@ function orbitCameraAroundY(angle) {
 	camera.lookAt(0, 0, 0);
 }
 
+
 // ---------- Animation ----------
 let last = performance.now();
+
+// IMPORTANT: disable autoclear ONCE (do NOT toggle per frame)
+renderer.autoClear = false;
 
 (function animate(now) {
 	// schedule next frame first
@@ -2600,13 +2655,13 @@ let last = performance.now();
 	// mini globe HUD
 	miniGlobeOverlay.update(globe, buildMiniGlobeTelemetry());
 
-	// time step (clamped to avoid huge jumps on tab switches)
+	// time step (clamped)
 	let dt = (now - last) / 1000;
 	if (!Number.isFinite(dt) || dt < 0) dt = 0;
-	if (dt > 0.05) dt = 0.05; // cap ~50ms
+	if (dt > 0.05) dt = 0.05;
 	last = now;
 
-	// --- 2D handoff check (throttled ~100ms) and honoring cooldown ---
+	// --- 2D handoff check (throttled ~100ms) ---
 	if (!animate._handoffTimer) animate._handoffTimer = 0;
 	animate._handoffTimer += dt;
 	if (animate._handoffTimer >= 0.10) {
@@ -2616,23 +2671,23 @@ let last = performance.now();
 		}
 	}
 
-	// If a navigation tween is active, drive it; else run autorotate/inertia
+	// --- Navigation tween OR autorotate/inertia ---
 	if (navTween) {
 		navTween.t += dt * 1000;
 		const a = Math.min(1, navTween.t / navTween.dur);
 		const e = Ease.cubicInOut(a);
 
-		// slerp from->to
-		const qCur = new THREE.Quaternion().slerpQuaternions(navTween.from, navTween.to, e);
+		const qCur = new THREE.Quaternion().slerpQuaternions(
+			navTween.from,
+			navTween.to,
+			e
+		);
 
-		// delta from last to current (for sky counter-rotation)
 		const qPrev = navTween.lastQ;
 		const qDelta = qPrev.clone().invert().multiply(qCur);
 
-		// apply to globe
 		globe.quaternion.copy(qCur).normalize();
 
-		// counter-rotate sky if stars movement is enabled
 		if (chkStarsMotion?.checked && sky) {
 			const qInv = qDelta.clone().invert();
 			sky.quaternion.premultiply(qInv).normalize();
@@ -2646,23 +2701,20 @@ let last = performance.now();
 			if (typeof cb === 'function') cb();
 		}
 	} else {
-		// --- Autorotate (only when not dragging and 2D is hidden) ---
+		// --- Autorotate ---
 		if (!pointerIsDown && !map2dVisible) {
 			const yaw = autorotateSpeed * dt;
 			if (yaw) {
 				globe.rotateOnAxis(LOCAL_Y, yaw);
-				if (typeof clouds !== 'undefined' && clouds) {
-					const drift = autorotateSpeed * 0.25 * dt;
-					if (drift) clouds.rotateOnAxis(LOCAL_Y, drift);
-				}
+				if (clouds) clouds.rotateOnAxis(LOCAL_Y, yaw * 0.25);
 				if (chkStarsMotion?.checked && sky) {
 					sky.rotateOnAxis(LOCAL_Y, -yaw);
 				}
 			}
 		}
 
-		// --- Inertial spin (from drag) ---
-		if (typeof spinVel !== 'undefined' && spinVel) {
+		// --- Inertial spin ---
+		if (spinVel) {
 			const speed = spinVel.length();
 			if (speed > 1e-5) {
 				const axis = spinVel.clone().normalize();
@@ -2680,7 +2732,7 @@ let last = performance.now();
 		}
 	}
 
-	// lighting / controls / UI / render
+	// --- lighting / controls / UI ---
 	atmoUniforms.sunDirW.value.copy(dirLight.position).normalize();
 
 	controls.update();
@@ -2688,12 +2740,46 @@ let last = performance.now();
 	Callout.update();
 
 	applySkyBrightness();
-	// updateViewReadout();
-
 	updateSunFromSolarTimeOncePerSecond();
 
+	// ================================
+	// MAIN SCENE RENDER (GLOBE)
+	// ================================
+	renderer.setScissorTest(false);
 	renderer.render(scene, camera);
+
+	// ================================
+	// FLAGS (viewport + scissor)
+	// ================================
+	if (activeFlags.length) {
+		// DEBUG: Always log for first 10 seconds, then occasionally
+		if (!window._flagDebugCount) window._flagDebugCount = 0;
+		window._flagDebugCount++;
+		
+		if (window._flagDebugCount < 600 || Math.random() < 0.01) { // First 10 sec @ 60fps, then 1%
+			console.log('🔍 activeFlags.length:', activeFlags.length);
+			activeFlags.forEach((flag, idx) => {
+				console.log(`  [${idx}]`, {
+					destroyed: flag._destroyed,
+					hasRenderer: !!flag.renderer,
+					hasScene: !!flag.scene,
+					hasRenderMethod: typeof flag.render
+				});
+			});
+		}
+		
+		// CRITICAL: clear depth so flags are not depth-culled by globe
+		renderer.clearDepth();
+
+		for (const flag of activeFlags) {
+			flag.update(now);
+			flag.render();
+		}
+	}
+
 })(last);
+
+
 
 
 // ---------- Init ----------

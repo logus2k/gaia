@@ -120,7 +120,8 @@ export class MenuManager {
             this.#makeDraggable(el, id);
 
             el.addEventListener('mousedown', () => {
-                this.topZ += 1; el.style.zIndex = String(this.topZ);
+                this.topZ += 1;
+                el.style.zIndex = String(this.topZ);
             });
         });
     }
